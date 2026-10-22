@@ -123,7 +123,11 @@ class TyphoonMap {
 
   nodeTooltip(point, agency, snapshot) {
     const date=snapshot.formatTime(point.time),wind=point.w==null?'未提供':point.w.toFixed(1)+' m/s',pressure=point.p==null?'未提供':point.p+' hPa';
-    return `<strong>${agency}</strong><br>${date}<br>風速 ${wind} · 氣壓 ${pressure}`;
+    const tooltip=document.createElement('span'),title=document.createElement('strong');
+    title.textContent=agency;
+    tooltip.append(title,document.createElement('br'),document.createTextNode(date),
+      document.createElement('br'),document.createTextNode(`風速 ${wind} · 氣壓 ${pressure}`));
+    return tooltip;
   }
 
   render(snapshot) {
@@ -149,7 +153,7 @@ class TyphoonMap {
         add(L.circleMarker([p[1],p[0]],{pane:'history',radius:2.5,color:'#fff',weight:1,fillColor:'#647780',fillOpacity:opacity,opacity,interactive:false}));
         const record=snapshot.historyRecords?.[index];
         if(record){const target=add(L.circleMarker([p[1],p[0]],{pane:'history',radius:12,stroke:false,fillOpacity:0,interactive:true,className:'history-node node-hit'}));
-          target.bindTooltip(this.nodeTooltip(record,snapshot.typhoon.historyAgency,snapshot),{direction:'top',offset:[0,-10],className:'forecast-tooltip',sticky:true});}
+          target.bindTooltip(this.nodeTooltip(record,snapshot.historyAgency,snapshot),{direction:'top',offset:[0,-10],className:'forecast-tooltip',sticky:true});}
       });
     }
 
@@ -220,6 +224,6 @@ class TyphoonMap {
     if(actual)add(L.marker([actual[1], actual[0]], {
       pane: 'center', interactive: false, opacity,
       icon: L.divIcon({ className: 'storm-center', html: '<span></span>', iconSize: [22, 22], iconAnchor: [11, 11] })
-    })).bindTooltip('CWA 分析位置', { permanent: true, direction: 'right', offset: [12, 0], className: 'center-label', opacity });
+    }));
   }
 }

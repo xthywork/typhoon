@@ -1,6 +1,7 @@
 """Fetch official products without evaluating provider JavaScript or filling missing data."""
 from __future__ import annotations
 import ast
+from concurrent.futures import ThreadPoolExecutor
 import json
 import math
 import os
@@ -18,7 +19,7 @@ SOURCES = {
     'JMA': ('日本氣象廳', '10 分鐘', 'https://www.jma.go.jp/bosai/typhoon/'),
     'KMA': ('韓國氣象廳', '10 分鐘', 'https://apihub.kma.go.kr/apiList.do?seqApi=8'),
     'HKO': ('香港天文台', '10 分鐘', 'https://data.gov.hk/en-data/dataset/hk-hko-rss-tc-track-info'),
-    'JTWC': ('美國聯合颱風警報中心', '1 分鐘', 'https://www.metoc.navy.mil/jtwc/jtwc.html'),
+    'JTWC': ('美國聯合颱風警報中心', '1 分鐘', 'https://tgftp.nws.noaa.gov/data/raw/ab/abpw10.pgtw..txt'),
     'CMA': ('中國氣象局', '2 分鐘', 'https://typhoon.nmc.cn/'),
 }
 
@@ -28,7 +29,10 @@ def now_ms():
 
 
 def timestamp(value):
-    return int(datetime.fromisoformat(str(value).replace('Z', '+00:00')).timestamp() * 1000)
+    parsed = datetime.fromisoformat(str(value).replace('Z', '+00:00'))
+    if parsed.tzinfo is None:
+        raise ValueError('Official timestamp must include a timezone')
+    return int(parsed.timestamp() * 1000)
 
 
 def num(value):
@@ -82,14 +86,24 @@ def storm_record(agency, name, name_zh, issued, base, points, history=(), number
     if not name or not points:
         raise ValueError('官方資料缺少名稱或路徑')
     points = sorted({p['time']: p for p in points}.values(), key=lambda p: p['time'])
-    year = datetime.fromtimestamp(base / 1000, UTC).year
+    history = list(history)
+    year = datetime.fromtimestamp(min([base] + [p['time'] for p in history]) / 1000, UTC).year
+    if agency in ('JMA', 'CMA', 'HKO'):
+        season = re.fullmatch(r'(?:TC)?(\d{2})\d{2}', str(number or ''))
+        if season:
+            year = min((year // 100 * 100 + int(season[1]) + shift for shift in (-100, 0, 100)),
+                key=lambda candidate: abs(candidate - year))
     # Names are matched only within the same season; unnamed depressions stay source-specific.
     key = re.sub(r'[^A-Z0-9]+', '', name.upper())
     if key in ('NAMELESS', 'UNNAMED', 'TD'):
+        if not number:
+            raise ValueError('Unnamed cyclone requires a provider identifier')
         key = agency + '-' + str(number)
+    if not key:
+        raise ValueError('Invalid cyclone name')
     return {'id': f'{year}-{key}', 'nameEn': name.upper(), 'nameZh': name_zh or '',
         'number': str(number or ''), 'agency': agency, 'issued': issued, 'base': base,
-        'points': points, 'history': list(history), 'url': product_url or SOURCES[agency][2]}
+        'points': points, 'history': history, 'url': product_url or SOURCES[agency][2]}
 
 
 def jma():
@@ -119,7 +133,7 @@ def jma():
                 coneProbability=70 if cone is not None else None))
         base = points[0]['time']
         result.append(storm_record('JMA', title['name']['en'], '', issued, base, points,
-            [points[0]], title.get('typhoonNumber'), url))
+            [points[0]], title.get('typhoonNumber') or code, url))
     return result
 
 
@@ -142,7 +156,7 @@ def hko():
         data = ET.fromstring(fetch(url))
         issued = timestamp(data.findtext('./BulletinHeader/BulletinTime'))
         report = data.find('WeatherReport')
-        history, points = [], []
+        history, points, base = [], [], None
         for tag in ('PastInformation', 'AnalysisInformation', 'ForecastInformation'):
             for entry in report.findall(tag):
                 # HKO also publishes interpolated drawing vertices without a time.
@@ -159,6 +173,8 @@ def hko():
                 if tag == 'AnalysisInformation':
                     history.append(p)
                     base = p['time']
+        if base is None:
+            raise ValueError('HKO official analysis is missing')
         result.append(storm_record('HKO', item.findtext('TropicalCycloneEnglishName'),
             item.findtext('TropicalCycloneChineseName'), issued, base, points, history,
             ident, url))
@@ -179,23 +195,31 @@ def cma():
             raise ValueError('Invalid CMA storm ID')
         url = root + 'view_' + ident
         data = json_product(url)['typhoon']
-        history = [point(p[2], p[5], p[4], p[7], p[6]) for p in data[8]]
-        for entry in data[8]:
-            forecasts = entry[11].get('BABJ', [])
-            if not forecasts:
+        result.extend(cma_records(data, url))
+    return result
+
+
+def cma_records(data, url, skip_incomplete=False):
+    result = []
+    history = [point(p[2], p[5], p[4], p[7], p[6]) for p in data[8]]
+    for entry in data[8]:
+        forecasts = (entry[11] or {}).get('BABJ', [])
+        if not forecasts:
+            continue
+        base = int(entry[2])
+        # Product explicitly supplies the bulletin's local publishing time.
+        pub = entry[12][0] if len(entry) > 12 and entry[12] else None
+        if not pub or not re.fullmatch(r'\d{12}', pub):
+            if skip_incomplete:
                 continue
-            base = int(entry[2])
-            # Product explicitly supplies the bulletin's local publishing time.
-            pub = entry[12][0] if len(entry) > 12 and entry[12] else None
-            if not pub or not re.fullmatch(r'\d{12}', pub):
-                raise ValueError('Missing CMA bulletin timestamp')
-            issued = int(datetime.strptime(pub, '%Y%m%d%H%M').replace(
-                tzinfo=timezone(timedelta(hours=8))).timestamp() * 1000)
-            points = [point(base, entry[5], entry[4], entry[7], entry[6])]
-            for p in forecasts:
-                points.append(point(base + int(p[0]) * 3600000, p[3], p[2], p[5], p[4]))
-            result.append(storm_record('CMA', data[1], data[2], issued, base, points,
-                [p for p in history if p['time'] <= base], data[3], url))
+            raise ValueError('Missing CMA bulletin timestamp')
+        issued = int(datetime.strptime(pub, '%Y%m%d%H%M').replace(
+            tzinfo=timezone(timedelta(hours=8))).timestamp() * 1000)
+        points = [point(base, entry[5], entry[4], entry[7], entry[6])]
+        for p in forecasts:
+            points.append(point(base + int(p[0]) * 3600000, p[3], p[2], p[5], p[4]))
+        result.append(storm_record('CMA', data[1], data[2], issued, base, points,
+            [p for p in history if p['time'] <= base], data[3], url))
     return result
 
 
@@ -232,13 +256,22 @@ def parse_cwa_api(text):
         history.sort(key=lambda p: p['time'])
         if not history:
             raise ValueError('CWA official analysis is missing')
-        base = history[-1]['time']
-        points = [history[-1]]
-        for fix in cyclone.findall('./ForecastData/Fix'):
+        forecasts = cyclone.findall('./ForecastData/Fix')
+        origins = {timestamp(fix.findtext('InitialTime')) for fix in forecasts}
+        if len(origins) > 1:
+            raise ValueError('CWA forecast origins are inconsistent')
+        # Hourly analyses may advance while the current forecast still starts
+        # from an earlier official fix. Keep both original clocks and positions.
+        base = next(iter(origins)) if origins else history[-1]['time']
+        analysis = next((p for p in history if p['time'] == base), None)
+        if analysis is None:
+            raise ValueError('CWA forecast origin has no matching official analysis')
+        points = [analysis]
+        for fix in forecasts:
             initial = timestamp(fix.findtext('InitialTime'))
             lead = num(fix.findtext('ForecastHour'))
             if initial != base or lead is None or lead < 0:
-                raise ValueError('CWA forecast initial time does not match latest analysis')
+                raise ValueError('CWA forecast initial time is invalid')
             points.append(decode(fix, initial + lead * 3600000))
         name = (cyclone.findtext('TyphoonName') or '').strip() or 'TD'
         number = cyclone.findtext('CwaTyNo') or cyclone.findtext('CwaTdNo')
@@ -351,10 +384,132 @@ def kma():
     raise RuntimeError('待設定 KMA API 認證與完成正式介面驗證')
 
 
+def jtwc_date(day, month, year):
+    months = 'JAN FEB MAR APR MAY JUN JUL AUG SEP OCT NOV DEC'.split()
+    return datetime(int(year), months.index(month) + 1, int(day), tzinfo=UTC)
+
+
+def jtwc_time(token, reference):
+    """Resolve WMO DDHHMM using the dated bulletin, including month/year rollovers."""
+    candidates = []
+    for offset in (-1, 0, 1):
+        month = reference.year * 12 + reference.month - 1 + offset
+        try:
+            candidates.append(datetime(month // 12, month % 12 + 1,
+                int(token[:2]), int(token[2:4]), int(token[4:6]), tzinfo=UTC))
+        except ValueError:
+            continue
+    if not candidates:
+        raise ValueError('Invalid JTWC WMO timestamp')
+    return min(candidates, key=lambda when: abs((when - reference).total_seconds()))
+
+
+def parse_jtwc_bulletin(text, url):
+    header = re.search(r'^(WTPN3[1-5])\s+PGTW\s+(\d{6})\b', text, re.M)
+    dated = re.search(r'\b(\d{2})(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{2})\.', text)
+    subject = re.search(r'SUBJ/[^\n]*?\b(\d{2}W)\s+\(([^)]+)\)\s+WARNING NR\s+(\d+)', text)
+    if not header or not dated or not subject:
+        raise ValueError('JTWC bulletin identity or date is missing')
+    dated_reference = jtwc_date(dated[1], dated[2], 2000 + int(dated[3]))
+    issued_dt = jtwc_time(header[2], dated_reference)
+    issued = int(issued_dt.timestamp() * 1000)
+    if not -3600000 <= now_ms() - issued <= 18 * 3600000:
+        raise RuntimeError('JTWC 官方轉送警報已過期或時間異常')
+    # The final warning is not an active forecast. Earlier bulletins remain in SQLite.
+    if re.search(r'THIS IS THE FINAL WARNING ON THIS SYSTEM', text):
+        return dict(number=subject[1], issued=issued, warningChannel=header[1], final=True)
+    position_pattern = r'(\d{6})Z\s*---\s*(?:NEAR\s+)?([\d.]+)([NS])\s+([\d.]+)([EW])'
+    analysis = re.search(r'WARNING POSITION:\s*' + position_pattern, text)
+    if not analysis:
+        raise ValueError('JTWC analysis position is missing')
+    base_dt = jtwc_time(analysis[1], issued_dt)
+    base = int(base_dt.timestamp() * 1000)
+    if not 0 <= issued - base <= 12 * 3600000:
+        raise ValueError('JTWC analysis time does not match bulletin')
+    forecasts = list(re.finditer(r'(\d+)\s+HRS,\s*VALID AT:\s*' + position_pattern, text))
+    if not forecasts:
+        raise ValueError('JTWC forecast coordinates are missing')
+
+    def decode(match, chunk, when, analysis_point=False):
+        token, lat, ns, lon, ew = match
+        if token != datetime.fromtimestamp(when / 1000, UTC).strftime('%d%H%M'):
+            raise ValueError('JTWC forecast valid time does not match lead hour')
+        wind = re.search(r'MAX SUSTAINED WINDS\s*-\s*(\d+) KT,\s*GUSTS\s*(\d+) KT', chunk)
+        if not wind:
+            raise ValueError('JTWC wind data is missing')
+        extra = dict(gust=int(wind[2]) * 0.514444)
+        for speed in (34, 50, 64):
+            radius = re.search(r'RADIUS OF\s+0*' + str(speed) + r' KT WINDS\s*-\s*'
+                r'(.*?)(?=RADIUS OF|VECTOR TO|REPEAT POSIT|---|$)', chunk, re.S)
+            if radius:
+                values = re.findall(r'(\d+) NM (NORTHEAST|SOUTHEAST|SOUTHWEST|NORTHWEST) QUADRANT', radius[1])
+                directions = dict(NORTHEAST='NE', SOUTHEAST='SE', SOUTHWEST='SW', NORTHWEST='NW')
+                if len(values) != 4 or {direction for _, direction in values} != set(directions):
+                    raise ValueError('JTWC wind quadrants are incomplete')
+                extra[f'windRadii{speed}kt'] = {directions[direction]: int(value) * 1.852 for value, direction in values}
+        pressure = None
+        if analysis_point:
+            pressure_match = re.search(r'MINIMUM CENTRAL PRESSURE AT\s+' + token +
+                r'Z IS\s*(\d+) MB', text)
+            pressure = int(pressure_match[1]) if pressure_match else None
+        return point(when, float(lat) * (-1 if ns == 'S' else 1),
+            float(lon) * (-1 if ew == 'W' else 1), int(wind[1]) * 0.514444, pressure, **extra)
+
+    actual = decode(analysis.groups(), text[analysis.end():forecasts[0].start()], base, True)
+    points = [actual]
+    for index, match in enumerate(forecasts):
+        lead = int(match[1])
+        if not 0 < lead <= 240:
+            raise ValueError('Invalid JTWC forecast lead')
+        end = forecasts[index + 1].start() if index + 1 < len(forecasts) else text.find('REMARKS:', match.end())
+        if end < 0:
+            raise ValueError('JTWC remarks boundary is missing')
+        points.append(decode(match.groups()[1:], text[match.end():end], base + lead * 3600000))
+    name = subject[2].strip()
+    if re.fullmatch(r'(?:ZERO|ONE|TWO|THREE|FOUR|FIVE|SIX|SEVEN|EIGHT|NINE|TEN|ELEVEN|TWELVE|THIRTEEN|FOURTEEN|FIFTEEN|SIXTEEN|SEVENTEEN|EIGHTEEN|NINETEEN|TWENTY|THIRTY)+', name):
+        name = 'TD'
+    record = storm_record('JTWC', name, '', issued, base, points, [actual], subject[1], url)
+    record.update(transport='noaa-nws-jtwc-bulletin', warningNumber=subject[3], warningChannel=header[1])
+    return record
+
+
 def jtwc():
-    # Test official access explicitly; a failed host is an error, not "no cyclone".
-    fetch('https://www.metoc.navy.mil/jtwc/products/abpwweb.txt')
-    raise RuntimeError('官方文字產品可連線；ATCF 路徑介面尚待驗證')
+    # NOAA/NWS officially redistributes the original JTWC PGTW bulletins.
+    root = 'https://tgftp.nws.noaa.gov/data/raw/'
+    advisory = fetch(root + 'ab/abpw10.pgtw..txt')
+    validity = re.search(r'(\d{6})Z-(\d{6})Z(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)(\d{4})', advisory)
+    if 'JOINT TYPHOON WRNCEN' not in advisory or not validity:
+        raise ValueError('JTWC advisory schema changed')
+    end = jtwc_date(validity[2][:2], validity[3], validity[4]).replace(
+        hour=int(validity[2][2:4]), minute=int(validity[2][4:6]))
+    if not -48 * 3600000 <= now_ms() - end.timestamp() * 1000 <= 12 * 3600000:
+        raise RuntimeError('JTWC 官方轉送概況已過期或時間異常')
+    summary = re.search(r'1\. WESTERN NORTH PACIFIC AREA.*?A\. TROPICAL CYCLONE SUMMARY:(.*?)B\. TROPICAL DISTURBANCE SUMMARY:', advisory, re.S)
+    if not summary:
+        raise ValueError('JTWC western Pacific summary is missing')
+    references = {}
+    for channel, token in re.findall(r'\b(WTPN3[1-5])\s+PGTW\s+(\d{6})\b', summary[1]):
+        reference = int(jtwc_time(token, end).timestamp() * 1000)
+        references[channel] = max(references.get(channel, reference), reference)
+    channels = sorted(references)
+    if not channels:
+        if re.search(r'\b(?:NONE|NO TROPICAL CYCLONES)\b', summary[1]):
+            return []
+        raise ValueError('JTWC active warning references are missing')
+    numbers = set(re.findall(r'\b\d{2}W\b', summary[1]))
+    urls = [root + 'wt/' + channel.lower() + '.pgtw..txt' for channel in channels]
+    with ThreadPoolExecutor(max_workers=5) as pool:
+        texts = list(pool.map(fetch, urls))
+    result = []
+    for channel, url, text in zip(channels, urls, texts):
+        record = parse_jtwc_bulletin(text, url)
+        if record['warningChannel'] != channel or record['number'] not in numbers:
+            raise ValueError('JTWC bulletin cyclone or channel does not match advisory')
+        if record['issued'] < references[channel]:
+            raise RuntimeError('JTWC 官方轉送警報尚未同步至概況引用的發布批次')
+        if not record.get('final'):
+            result.append(record)
+    return result
 
 
 ADAPTERS = dict(CWA=cwa, JMA=jma, KMA=kma, HKO=hko, JTWC=jtwc, CMA=cma)

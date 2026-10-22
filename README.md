@@ -1,8 +1,8 @@
 # 多國颱風路徑比較
 
-以 OpenStreetMap 底圖與 Leaflet 1.9.4／MapLibre GL JS 5.6.2 顯示颱風歷史位置、各機構預測路徑、暴風圈及不確定範圍。
+以 OpenStreetMap 底圖與 Leaflet 1.9.4／MapLibre GL JS 6.11.2 顯示颱風歷史位置、各機構預測路徑、暴風圈及不確定範圍。
 
-目前已接入 CWA 正式會員 API，以及 JMA、HKO、CMA 官方公開產品，並保留來源與真實發布／產品更新時間。KMA 等待認證與正式 adapter，JTWC 在此環境尚無法連線。詳細限制與申請方式見 [官方資料串接說明](docs/official-data.md)。
+目前已接入 CWA 正式會員 API、JMA／HKO／CMA 官方公開產品，以及 NOAA/NWS 官方轉送的 JTWC 警報，並保留來源與真實發布／產品更新時間。KMA 等待認證與正式 adapter。詳細限制與申請方式見 [官方資料串接說明](docs/official-data.md)。
 
 ## 本機啟動
 
@@ -15,7 +15,7 @@ python3 server.py --port 8000 --bind 0.0.0.0
 
 本地底圖以全球概覽為基礎，東經 95°–165°、南緯 5°–北緯 55° 使用較詳細的海岸資料，涵蓋台灣與西北太平洋。高倍率縮放沿用本地海岸輪廓，不會下載額外的街道細節。海岸資料採快照，不會自動更新。
 
-資料服務需要 Python 3.10+ 與 `curl`，有人請求資料且距離上一輪擷取已超過一小時才更新，歷史批次保存在不加入 Git 的 `.cache/weather.sqlite3`。原本的靜態 HTTP server 不支援官方資料 API。
+資料服務需要 Python 3.10+ 與 `curl`，依台灣時間每小時 05、20、25、50 分背景更新，啟動時等待下一個排程時間，即使無人訪問也持續排程。有人開啟網頁時，若距離上輪完成超過 5 分鐘，另觸發一次背景擷取；一般版本檢查只讀快取。網頁前 10 秒每秒檢查，其後每 3 分鐘檢查，只有資料內容改變才更新畫面。歷史批次保存在不加入 Git 的 `.cache/weather.sqlite3`。原本的靜態 HTTP server 不支援官方資料 API。
 
 ## 地圖操作
 
@@ -24,12 +24,12 @@ python3 server.py --port 8000 --bind 0.0.0.0
 - 設定面板可選低彩度淺色、自然色或深色底圖，所有模式均不顯示地名或行政／海上國界線。
 - 分享連結包含 Leaflet 地圖中心與縮放比例。
 
-底圖圖層由 `basemap-style.json` 管理，只使用陸地底色及本地海岸／水域資料，不加入地名或邊界圖層；配色與互動由 `map.js` 管理，網頁外觀由 `map.css` 管理。
+前端由 `bootstrap.mjs` 載入本地 MapLibre 模組與 `app.js`。底圖圖層由 `basemap-style.json` 管理，只使用陸地底色及本地海岸／水域資料，不加入地名或邊界圖層；配色與互動由 `map.js` 管理，網頁外觀由 `map.css` 管理。
 
 ## 時間軸與節點提示
 
 - 每條時間軸左側的核取方塊選擇播放對象，可播放位置、發布批次，或兩者同時播放。兩軌勾選時共用同一時間游標，依序經過官方分析與發布時間的聯集；地圖只使用該時刻以前最新的分析與已發布批次，不顯示尚未發布的預報，也不進行位置插值。同步時時間讀值標示「截至」，實際分析／發布時間保留在提示與資料詳情中。單軌播放各自保留操作。全不勾選時播放鍵停用。
-- 速度選項旁的「發布範圍」只將共用刻度縮到真實發布批次範圍，不改變兩軌的播放勾選；位置軌仍可播放範圍內的官方分析點。地圖保留全部歷史路徑，關閉後恢復完整刻度。
+- 速度選項旁的「同步播放」預設開啟；關閉後兩軌可獨立調整，刻度仍共用實際時間範圍。分享連結保留同步狀態、兩軌勾選、時間與地圖視角。
 - 左側所有來源均可選取；沒有資料時保留勾選狀態與狀態燈，地圖只顯示當時有資料的已勾選來源。全選／取消全選包含暫時無資料的來源。
 - 節點保留原本視覺大小，透明感應區至少直徑 24px；歷史與預報節點的 hover 顯示來源、日期時間、風速及氣壓，不顯示座標。時間會跟隨頁面時區。
 
@@ -63,3 +63,14 @@ uv run scripts/build-local-basemap.py
 ```sh
 python3 -m unittest discover -s tests -v
 ```
+
+
+瀏覽器回歸檢查使用 Playwright 與 Chromium；所有氣象請求均由測試資料回應，不消耗官方 API 額度。可在專案外安裝測試工具：
+
+```sh
+npm install --prefix /tmp/typhoon-browser-check playwright
+/tmp/typhoon-browser-check/node_modules/.bin/playwright install chromium
+NODE_PATH=/tmp/typhoon-browser-check/node_modules node tests/frontend.cjs
+```
+
+已有 Chromium 時可設定 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` 指向執行檔。檢查涵蓋真實地圖與 CSP、分享還原、背景更新、資料清空、搜尋與輪詢時序。安全修正與驗證範圍見 [檢查紀錄](docs/security-review-2026-10-23.md)。

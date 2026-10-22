@@ -12,7 +12,7 @@ import server
 
 
 class DemandCacheTests(unittest.TestCase):
-    def test_hourly_cache_restart_and_concurrent_requests(self):
+    def test_visit_cache_restart_and_concurrent_requests(self):
         calls = []
         clock = [1792650000000]
         def make_adapter(key):
@@ -30,7 +30,7 @@ class DemandCacheTests(unittest.TestCase):
             self.assertEqual(len(calls), len(adapters))
             self.assertIs(store.collect(), first)
             store.db.close()
-            clock[0] += 3599000
+            clock[0] += 299000
             restored = server.WeatherStore(path)
             self.assertIsNotNone(restored.snapshot)
             restored.collect()
@@ -38,7 +38,7 @@ class DemandCacheTests(unittest.TestCase):
             restored.db.close()
             clock[0] += 2000
             expired = server.WeatherStore(path)
-            self.assertIsNone(expired.snapshot)
+            self.assertIsNotNone(expired.snapshot)  # Old data stays visible during refresh.
             self.assertEqual(len(calls), len(adapters))
             with ThreadPoolExecutor(max_workers=12) as pool:
                 results = list(pool.map(lambda _: expired.collect(), range(12)))
@@ -48,24 +48,25 @@ class DemandCacheTests(unittest.TestCase):
 
     def test_failure_retains_data_but_explicit_empty_clears_it(self):
         now = 1792650000000
+        clock = [now]
         record = official_data.storm_record('JMA', 'CHECK', '', now, now,
             [official_data.point(now, 20, 125, 30, 980)],
             [official_data.point(now, 20, 125, 30, 980)])
         adapters = {key: lambda: [] for key in official_data.SOURCES}
         adapters['JMA'] = lambda: [record]
         with tempfile.TemporaryDirectory() as tmp, patch.object(server, 'ADAPTERS', adapters), \
-                patch.object(server, 'now_ms', lambda: now):
+                patch.object(server, 'now_ms', lambda: clock[0]):
             store = server.WeatherStore(Path(tmp) / 'weather.sqlite3')
             self.assertEqual(len(store.collect()['typhoons']), 1)
             def failed():
                 raise RuntimeError('controlled upstream failure')
             adapters['JMA'] = failed
-            store.expires = 0
+            clock[0] += 300001
             result = store.collect()
             self.assertEqual(result['sources']['JMA']['status'], 'late')
             self.assertEqual(len(result['typhoons']), 1)
             adapters['JMA'] = lambda: []
-            store.expires = 0
+            clock[0] += 300001
             result = store.collect()
             self.assertEqual(result['sources']['JMA']['status'], 'none')
             self.assertEqual(result['typhoons'], [])
@@ -73,6 +74,25 @@ class DemandCacheTests(unittest.TestCase):
 
 
 class CwaContractTests(unittest.TestCase):
+    def test_latest_analysis_can_be_newer_than_forecast_origin(self):
+        text = '''<cwaopendata><Sent>2026-10-22T14:16:00+08:00</Sent><Status>Actual</Status>
+          <Dataset><TropicalCyclones><TropicalCyclone><TyphoonName>TEST</TyphoonName>
+          <AnalysisData><Fix><DateTime>2026-10-22T12:00:00+08:00</DateTime>
+          <CoordinateLatitude>20</CoordinateLatitude><CoordinateLongitude>125</CoordinateLongitude></Fix>
+          <Fix><DateTime>2026-10-22T14:00:00+08:00</DateTime>
+          <CoordinateLatitude>21</CoordinateLatitude><CoordinateLongitude>124</CoordinateLongitude>
+          <Circle15ms><Radius>320</Radius></Circle15ms></Fix></AnalysisData>
+          <ForecastData><Fix><InitialTime>2026-10-22T12:00:00+08:00</InitialTime><ForecastHour>6</ForecastHour>
+          <CoordinateLatitude>22</CoordinateLatitude><CoordinateLongitude>123</CoordinateLongitude></Fix></ForecastData>
+          </TropicalCyclone></TropicalCyclones></Dataset></cwaopendata>'''
+        record = official_data.parse_cwa_api(text)[0]
+        self.assertEqual(record['base'], 1792641600000)
+        self.assertEqual(record['points'][0]['lat'], 20)
+        self.assertEqual(record['points'][1]['time'], 1792663200000)
+        self.assertEqual(record['history'][-1]['time'], 1792648800000)
+        self.assertEqual(record['history'][-1]['windRadius15ms'], 320)
+        server.validate_records('CWA', [record], 1792649760000)
+
     def test_authorization_stays_out_of_arguments_and_error_messages(self):
         key = 'test-credential-not-a-real-key'
         with patch('official_data.subprocess.run', return_value=SimpleNamespace(
