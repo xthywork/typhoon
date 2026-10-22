@@ -15,7 +15,7 @@ python3 server.py --port 8000 --bind 0.0.0.0
 
 本地底圖以全球概覽為基礎，東經 95°–165°、南緯 5°–北緯 55° 使用較詳細的海岸資料，涵蓋台灣與西北太平洋。高倍率縮放沿用本地海岸輪廓，不會下載額外的街道細節。海岸資料採快照，不會自動更新。
 
-資料服務需要 Python 3.10+ 與 `curl`，每五分鐘更新，歷史批次保存在不加入 Git 的 `.cache/weather.sqlite3`。原本的靜態 HTTP server 不支援官方資料 API。
+資料服務需要 Python 3.10+ 與 `curl`，有人請求資料且距離上一輪擷取已超過一小時才更新，歷史批次保存在不加入 Git 的 `.cache/weather.sqlite3`。原本的靜態 HTTP server 不支援官方資料 API。
 
 ## 地圖操作
 
@@ -53,3 +53,13 @@ uv run scripts/build-local-basemap.py
 
 [Leaflet](https://leafletjs.com/) 採 BSD 2-Clause 授權，完整授權見 `vendor/leaflet/LICENSE`。
 [MapLibre GL JS](https://maplibre.org/) 與 Leaflet 整合套件的授權見 `vendor/maplibre/`。
+
+## 本次 API 合併與驗證
+
+其他開發分支合併前請閱讀 [API 與時間軸整合說明](docs/integration/backend-api-adjustments.md)，其中列出啟動方式、毫秒時間戳、快取與風圈同步的相容性要求。
+
+執行不需網路或真實金鑰的後端檢查：
+
+```sh
+python3 -m unittest discover -s tests -v
+```

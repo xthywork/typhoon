@@ -60,6 +60,8 @@ class TyphoonMap {
     });
     this.resizeObserver.observe(document.getElementById(id));
     this.setStyle('light');
+    // Initialize the local basemap even when no cyclone is active.
+    this.map.setView([23.5, 128], 4, { animate: false });
   }
 
   async loadCoastlines() {

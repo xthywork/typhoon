@@ -254,5 +254,5 @@ async function refresh(){const oldId=TY()?.id,oldActual=S.actual,oldBatch=select
 new ResizeObserver(()=>{if(TY())updTl()}).observe($('#positionScale'));
 document.fonts.ready.then(()=>fitSourceWidth(true));
 $('#refresh').onclick=refresh;$('#lside').append($('#p_src'));updTabs();syncPanelButtons();AG.forEach(a=>{a.st='none';a.note='等待資料更新'});updAgs();
-refresh().then(ok=>{if(!ok||!TY())return;const view=restore();$('#typSel').value=TY().name;all();mapView.restoreView(view)});setInterval(refresh,3e5);
+refresh().then(ok=>{if(!ok||!TY())return;const view=restore();$('#typSel').value=TY().name;all();mapView.restoreView(view)});
 </script></body></html>

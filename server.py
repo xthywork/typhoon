@@ -14,6 +14,7 @@ from urllib.parse import unquote, urlsplit
 from official_data import ADAPTERS, SOURCES, now_ms
 
 ROOT = Path(__file__).resolve().parent
+CACHE_SECONDS = 3600
 
 
 class WeatherStore:
@@ -26,10 +27,22 @@ class WeatherStore:
         self.db.execute('''CREATE TABLE IF NOT EXISTS source_state (
             agency TEXT PRIMARY KEY, checked INTEGER, succeeded INTEGER,
             active TEXT, error TEXT)''')
+        self.db.execute('CREATE TABLE IF NOT EXISTS collection_state (id INTEGER PRIMARY KEY CHECK(id=1), completed INTEGER NOT NULL)')
         self.db.commit()
         self.lock = threading.Lock()
         self.snapshot = None
         self.expires = 0
+        # Restore a fresh persisted result without contacting any upstream.
+        states = self.db.execute('SELECT agency,checked FROM source_state').fetchall()
+        if {row[0] for row in states} == set(SOURCES):
+            saved = self.db.execute('SELECT completed FROM collection_state WHERE id=1').fetchone()
+            checks = {row[1] for row in states}
+            # Migrate the previous cache only when all sources completed the same round.
+            completed = saved[0] if saved else (next(iter(checks)) if len(checks) == 1 else None)
+            age = (now_ms() - completed) / 1000 if completed is not None else None
+            if age is not None and 0 <= age < CACHE_SECONDS:
+                self.snapshot = self.build_snapshot(completed)
+                self.expires = time.monotonic() + CACHE_SECONDS - age
 
     def collect(self):
         with self.lock:
@@ -57,8 +70,11 @@ class WeatherStore:
                             self.db.execute('INSERT OR REPLACE INTO source_state VALUES (?,?,?,?,?)',
                                 (agency, checked, old[0] if old else None,
                                     old[1] if old else '[]', message))
-            self.snapshot = self.build_snapshot(checked)
-            self.expires = time.monotonic() + 300
+            completed = now_ms()
+            with self.db:
+                self.db.execute('INSERT OR REPLACE INTO collection_state VALUES (1,?)', (completed,))
+            self.snapshot = self.build_snapshot(completed)
+            self.expires = time.monotonic() + CACHE_SECONDS
             return self.snapshot
 
     def build_snapshot(self, checked):
@@ -173,14 +189,6 @@ def main():
     args = parser.parse_args()
     store = WeatherStore(args.cache)
     server = ThreadingHTTPServer((args.bind, args.port), handler_for(store))
-    def update():
-        while True:
-            try:
-                store.collect()
-            except Exception as error:
-                print('Weather update failed:', type(error).__name__, flush=True)
-            time.sleep(300)
-    threading.Thread(target=update, daemon=True).start()
     print(f'Typhoon server listening at http://{args.bind}:{args.port}', flush=True)
     server.serve_forever()
 
