@@ -1,4 +1,6 @@
 <!DOCTYPE html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>多國颱風路徑比較（模擬資料）</title>
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="vendor/maplibre/maplibre-gl.css">
 <style>
 :root{--bg:#fff;--tx:#111;--mu:#737373;--bd:#dedede;--ft:#f5f5f5;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121212;--tx:#eee;--mu:#8f8f8f;--bd:#2a2a2a;--ft:#1b1b1b;color-scheme:dark}}
@@ -20,11 +22,7 @@ select{appearance:none;-webkit-appearance:none;min-height:40px;padding:7px 34px 
 #main.cl{grid-template-columns:var(--source-width,350px) minmax(320px,1fr) 0}#main.cl.cll{grid-template-columns:0 minmax(320px,1fr) 0}#main.cl #sheet{display:none}
 #mapc{position:relative;min-width:0;overflow:hidden;background:var(--ft)}
 .panel-edge{position:absolute;top:50%;z-index:4;display:grid;place-items:center;width:18px;height:40px;padding:0;transform:translateY(-50%);background:var(--bg);border:1px solid var(--bd);box-shadow:0 1px 4px #00000010;font-size:20px;line-height:1}.panel-edge:hover{background:var(--ft)}.panel-edge[aria-expanded="true"]{background:var(--ft)}.panel-edge.left{left:0;border-left:0;border-radius:0 8px 8px 0}.panel-edge.right{right:0;border-right:0;border-radius:8px 0 0 8px}
-#map{width:100%;height:100%;display:block;touch-action:none;cursor:grab;--sea:var(--ft);--land:var(--bg);--gr:var(--bd);--mt:var(--mu)}
-#map[data-bm=dark]{--sea:#0e1217;--land:#1e252d;--gr:#333c46;--mt:#9aa6b2}
-#map[data-bm=terrain]{--sea:#e4eef2;--land:#eef0e2;--gr:#c4d0d4;--mt:#5d6b61}
-.sea{fill:var(--sea)}.land{fill:var(--land);stroke:var(--gr);stroke-width:1;vector-effect:non-scaling-stroke}
-.gr{stroke:var(--gr)}.gt,.ct{fill:var(--mt)}.cy{fill:var(--mt)}.pt{cursor:pointer}
+.pt{cursor:pointer}
 #mock{position:absolute;left:20px;top:16px;font-size:12px;color:var(--mu);pointer-events:none}#mock i{color:#e0a100;font-style:normal}
 #tools{position:absolute;left:16px;top:58px;display:flex;flex-direction:column;background:var(--bg);border:1px solid var(--bd);border-radius:10px;overflow:hidden;box-shadow:0 2px 10px #00000012}
 #tools button{width:44px;height:44px;padding:0;font-size:20px;border-radius:0}#tools button+button{border-top:1px solid var(--bd)}#zr{font-size:12px!important;font-weight:600}
@@ -32,7 +30,6 @@ select{appearance:none;-webkit-appearance:none;min-height:40px;padding:7px 34px 
 .dr{display:grid;grid-template-columns:62px 1fr minmax(120px,170px);gap:14px;align-items:center}.dr input{width:100%;accent-color:var(--tx)}.dr output{font-variant-numeric:tabular-nums;text-align:right;font-size:12px}
 .dc{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}
 .chip{border:1px solid var(--bd);border-radius:99px;padding:5px 12px;min-height:34px}.chip.on,.seg.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
-#tip{position:absolute;pointer-events:none;background:var(--tx);color:var(--bg);padding:3px 9px;border-radius:6px;font-size:12px;white-space:nowrap}
 #det{position:absolute;right:20px;top:16px;width:270px;max-height:calc(100% - 180px);overflow:auto;background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:12px 16px}
 #det td{text-align:left}#det td:first-child{color:var(--mu);width:42%}
 #empty{position:absolute;inset:0;display:grid;place-items:center;background:var(--bg);text-align:center}
@@ -77,15 +74,15 @@ header{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}heade
 #dock.radio-dock{--position-accent:#416fa5;--batch-accent:#34877f;--dock-surface:color-mix(in srgb,var(--bg) 96%,#6c97c4);--dock-border:color-mix(in srgb,var(--bd) 76%,#6c97c4);background:var(--dock-surface);border-color:var(--dock-border);box-shadow:0 3px 12px #304f7210}#dock .playback{background:var(--dock-surface);border-color:var(--dock-border)}#dock .playback::after{background:var(--dock-surface)}#dock .playback #pl{color:var(--position-accent);background:color-mix(in srgb,var(--dock-surface) 86%,var(--position-accent))}.band-position{--band-accent:var(--position-accent)}.band-batch{--band-accent:var(--batch-accent)}#dock .band-heading label{color:var(--band-accent)}#dock .band-heading output{color:color-mix(in srgb,var(--tx) 65%,var(--band-accent))}.tuning-scale .tuning-needle,.tuning-scale:hover .tuning-needle{background:var(--band-accent);border-color:var(--dock-surface);box-shadow:0 1px 3px #1b354b25}.tuning-scale .tick-bed::before{background:color-mix(in srgb,var(--bd) 70%,var(--band-accent))}.band-batch .tick-bed::before{background:linear-gradient(to right,transparent 0 50%,color-mix(in srgb,var(--bd) 35%,var(--batch-accent)) 50% 100%)}#dock .radio-footer{border-color:var(--dock-border)}#dock .speed-options button[aria-pressed=true]{background:color-mix(in srgb,var(--dock-surface) 88%,var(--position-accent));border-color:color-mix(in srgb,var(--bd) 65%,var(--position-accent));color:var(--position-accent)}@media(prefers-color-scheme:dark){:root:not([data-theme=light]) #dock.radio-dock{--position-accent:#94b8e5;--batch-accent:#7dc5b7}}:root[data-theme=dark] #dock.radio-dock{--position-accent:#94b8e5;--batch-accent:#7dc5b7}
 #dock .tuner-band,#dock .shared-axis{grid-template-columns:106px minmax(0,1fr) 126px}#dock .band-heading label{font-size:12px}#dock .band-heading output{font-size:12px}#dock .speed-options button{font-size:12px;min-height:25px}#dock .radio-zone{font-size:11px}.shared-time-scale{height:39px}.shared-time-scale .time-tick.major{top:28px;height:48px}.shared-time-scale .tick-label{top:-28px;display:flex;flex-direction:column;gap:3px;font-size:11px;line-height:1.1}.shared-time-scale .tick-label small,.shared-time-scale .time-tick:first-child small,.shared-time-scale .time-tick:last-child small{display:block;font-size:9px;margin:0;line-height:1.1}.shared-time-scale .time-tick.secondary .tick-label{display:none}@media(max-width:560px){#dock .tuner-band,#dock .shared-axis{grid-template-columns:88px minmax(0,1fr) 104px}#dock .band-heading label{font-size:11px}#dock .band-heading output{font-size:10.5px}.shared-time-scale{height:37px}.shared-time-scale .time-tick.major{top:26px;height:48px}.shared-time-scale .tick-label{top:-26px;font-size:10px}.shared-time-scale .compact-hidden .tick-label{display:none}}
 .axis-date{position:absolute;top:0;transform:translateX(-50%);white-space:nowrap;font:9px/1.1 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--mu)}.axis-date.date-start{transform:none}.axis-date.date-end{transform:translateX(-100%)}.shared-time-scale .tick-label{top:-15px}.shared-time-scale .time-tick.tick-start .tick-label{transform:none}.shared-time-scale .time-tick:last-child .tick-label{transform:translateX(-100%)}@media(max-width:560px){.shared-time-scale .tick-label{top:-13px}}
-</style></head><body>
+</style><link rel="stylesheet" href="map.css"></head><body>
 <header><div id="headMain"><b>多國颱風路徑比較</b></div><div class="typhoon-picker"><input id="typSel" type="search" role="combobox" aria-label="搜尋或選擇颱風" aria-autocomplete="list" aria-expanded="false" aria-controls="typOptions" placeholder="搜尋颱風" autocomplete="off"><div id="typOptions" class="picker-options hide" role="listbox"></div></div>
 <div id="headActions"><button id="refresh">重新整理</button>
 <div class="timezone-control"><select id="tz" aria-label="時區"><option value="-10">UTC-10　夏威夷</option><option value="-8">UTC-8　北美太平洋（標準時間）</option><option value="-7">UTC-7　北美山區（標準時間）</option><option value="-6">UTC-6　北美中部（標準時間）</option><option value="-5">UTC-5　北美東部（標準時間）</option><option value="-4">UTC-4　大西洋（標準時間）</option><option value="-3">UTC-3　巴西・阿根廷</option><option value="0">UTC+0　協調世界時</option><option value="1">UTC+1　中歐（標準時間）</option><option value="2">UTC+2　東歐（標準時間）</option><option value="3">UTC+3　沙烏地阿拉伯</option><option value="4">UTC+4　阿拉伯聯合大公國</option><option value="5.5">UTC+5:30　印度</option><option value="7">UTC+7　泰國・越南</option><option value="8" selected>UTC+8　台灣・香港・新加坡</option><option value="9">UTC+9　日本・韓國</option><option value="9.5">UTC+9:30　澳洲中部（標準時間）</option><option value="10">UTC+10　澳洲東部（標準時間）</option><option value="12">UTC+12　紐西蘭（標準時間）</option></select><span id="tzLabel" aria-hidden="true">UTC+8</span></div></div></header>
-<div id="main" class="cl"><aside id="lside"><div class="row panelhead"><b class="sp" style="font-size:18px">來源</b></div></aside><div id="sourceResize" role="separator" tabindex="0" aria-label="調整來源面板寬度" aria-orientation="vertical" aria-valuemin="260" aria-valuemax="560" aria-valuenow="350"></div><section id="mapc"><svg id="map" viewBox="0 0 900 700" role="img" aria-label="颱風路徑地圖"><rect class="sea" width="900" height="700"/><g id="vp"></g></svg><button class="panel-edge left" id="tgL" aria-controls="lside" aria-expanded="false" aria-label="展開來源" title="展開來源">›</button><button class="panel-edge right" id="tg" aria-controls="sheet" aria-expanded="false" aria-label="展開設定面板" title="展開設定面板">‹</button>
+<div id="main" class="cl"><aside id="lside"><div class="row panelhead"><b class="sp" style="font-size:18px">來源</b></div></aside><div id="sourceResize" role="separator" tabindex="0" aria-label="調整來源面板寬度" aria-orientation="vertical" aria-valuemin="260" aria-valuemax="560" aria-valuenow="350"></div><section id="mapc"><div id="map" role="region" aria-label="OpenStreetMap 颱風路徑地圖"></div><div id="mapStatus" role="status">地圖載入中…</div><button class="panel-edge left" id="tgL" aria-controls="lside" aria-expanded="false" aria-label="展開來源" title="展開來源">›</button><button class="panel-edge right" id="tg" aria-controls="sheet" aria-expanded="false" aria-label="展開設定面板" title="展開設定面板">‹</button>
 <div id="mapUpdated" class="mu" role="status">更新 <span id="sync">—</span></div>
 <div id="mock"><i>●</i> 模擬資料，非官方預報　<span id="mockT"></span></div>
 <div id="tools" role="group" aria-label="地圖縮放"><button id="zi" aria-label="放大地圖" title="放大地圖">＋</button><button id="zo" aria-label="縮小地圖" title="縮小地圖">－</button><button id="zr" aria-label="重設地圖視角" title="重設地圖視角">重設</button></div>
-<div id="tip" class="hide"></div><div id="det" class="hide"></div>
+<div id="det" class="hide"></div>
 <div id="empty" class="hide"><div><h2>目前沒有活躍颱風</h2><p class="mu">請稍後按「重新整理」。</p></div></div>
 <div id="dock" class="radio-dock" role="group" aria-label="雙軌時間調諧面板">
 <div class="dc playback"><button id="pv" aria-label="上一個位置時間" title="上一個位置時間"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M11 5 2 12l9 7V5Zm11 0-9 7 9 7V5Z"/></svg></button><button id="pl" aria-label="播放實際位置時間軸" title="播放"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" class="icon-play"><path d="m7 4 14 8-14 8V4Z"/></svg><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" class="icon-pause"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg></button><button id="nx" aria-label="下一個位置時間" title="下一個位置時間"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="m2 5 9 7-9 7V5Zm11 0 9 7-9 7V5Z"/></svg></button></div>
@@ -98,10 +95,14 @@ header{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}heade
 </div></section>
 <aside id="sheet"><div class="row panelhead"><b class="sp" style="font-size:18px">設定面板</b></div><nav id="tabs"></nav>
 <div class="pn" id="p_src"><div class="source-actions"><button id="toggleAll" type="button" aria-controls="ags">全選</button></div><div id="ags"></div></div>
-<div class="pn hide" id="p_lay"><div id="lys"></div><label>透明度 <input type="range" id="op" min="10" max="100" value="100"></label><label>底圖 <select id="bm"><option value="light">簡約</option><option value="dark">深色</option><option value="terrain">地形</option></select></label></div>
+<div class="pn hide" id="p_lay"><div id="lys"></div><label>透明度 <input type="range" id="op" min="10" max="100" value="100"></label><label>底圖 <select id="bm"><option value="light">淺色・低彩度</option><option value="standard">自然色</option><option value="dark">深色</option></select></label></div>
 
 <div class="pn hide" id="p_exp"><div class="row"><button class="chip" id="xc">CSV</button><button class="chip" id="xg">GeoJSON</button><button class="chip" id="xs">分享連結</button></div><div class="note">發佈頁面無法直接下載檔案，內容會顯示在視窗中供複製。</div></div></aside></div>
 <div id="modal" class="hide"><div><div class="row"><b id="mt" class="sp"></b><button id="mcp">複製</button><button id="mx">關閉</button></div><textarea id="ma" readonly></textarea></div></div>
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="vendor/maplibre/maplibre-gl.js"></script>
+<script src="vendor/maplibre/leaflet-maplibre-gl.js"></script>
+<script src="map.js"></script>
 <script>
 const $=s=>document.querySelector(s),p2=n=>String(n).padStart(2,'0');
 /* ===== 資料層（日後把 DS.load 換成真實 API；此處全為模擬資料） ===== */
@@ -124,7 +125,7 @@ function fc(T,a,b,h){const ld=h+6*b;if(!a.max||ld>a.max)return null;const s=h/12
  return{a:a.k,b,h,ld,lon:bp[0]+a.off[0]*s+b*.7*q,lat:bp[1]+a.off[1]*s+(b%2?-.4:.3)*b*.6*q,w,p:Math.round(1010-1.35*w),gust:a.k==='CWA'?Math.round(w*1.35):null,r30:a.r?Math.round(120+w*4):null,cone:Math.round(40+3.2*h)}}
 const hist=T=>{const o=[];for(let t=-48;t<=0;t+=6){const q=base(T,t);o.push([q[0],q[1]])}return o};
 /* ===== 狀態 ===== */
-const NB=5;let D,S={ty:0,actual:0,hour:0,hor:120,batch:0,ov:false,on:new Set(AG.filter(a=>a.max).map(a=>a.k)),hl:null,solo:false,bl:'CWA',tz:'8',op:1,chart:0,sel:null,tab:{L:'src',R:'lay'},v:{k:1.8,x:-216,y:-244},play:null,speed:800,ly:{hist:1,trk:1,pt:1,lbl:1,cone:1,r30:1,int:1,grid:1}};
+const NB=5;let D,S={ty:0,actual:0,hour:0,hor:120,batch:0,ov:false,on:new Set(AG.filter(a=>a.max).map(a=>a.k)),hl:null,solo:false,bl:'CWA',tz:'8',op:1,chart:0,sel:null,tab:{L:'src',R:'lay'},play:null,speed:800,ly:{hist:1,trk:1,pt:1,lbl:1,cone:1,r30:1,int:1,grid:1}};
 const LY=[['hist','歷史颱風路徑'],['trk','官方預報路徑'],['pt','預測中心位置'],['lbl','預報時間標籤'],['cone','路徑機率（不確定性）範圍'],['r30','暴風圈範圍（30 kt）'],['int','颱風強度標記（點大小）'],['grid','經緯度格線']];
 const TY=()=>D.typhoons[S.ty],vis=()=>AG.filter(a=>S.on.has(a.k)&&a.max&&(!S.solo||!S.hl||S.hl===a.k)),bs=()=>S.ov&&S.batch+1<NB?[S.batch,S.batch+1]:[S.batch];
 const pts=(a,b)=>{const o=[];for(let h=0;h<=S.hor;h+=12){const p=fc(TY(),a,b,h);if(p)o.push(p)}return o};
@@ -135,35 +136,13 @@ const cls=w=>w<17.2?'熱帶性低氣壓':w<32.7?'輕度颱風':w<51?'中度颱�
 const dist=(a,b)=>{const R=6371,r=Math.PI/180,x=(b.lat-a.lat)*r,y=(b.lon-a.lon)*r,h=Math.sin(x/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(y/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
 const D8=['北','東北','東','東南','南','西南','西','西北'];
 const mv=(a,b)=>{const r=Math.PI/180,y=Math.sin((b.lon-a.lon)*r)*Math.cos(b.lat*r),x=Math.cos(a.lat*r)*Math.sin(b.lat*r)-Math.sin(a.lat*r)*Math.cos(b.lat*r)*Math.cos((b.lon-a.lon)*r);return D8[Math.round(((Math.atan2(y,x)/r+360)%360)/45)%8]};
-/* ===== 地圖渲染層 ===== */
-const P=q=>[+((q[0]-105)*20).toFixed(1),+((40-q[1])*20).toFixed(1)];
-const LAND=[[[104,41],[104,22],[106.5,21.6],[108,21.5],[109.7,21.2],[110.5,20.3],[111.5,21.4],[113.5,22.1],[114.3,22.4],[116.5,23.2],[118.2,24.4],[119.6,25.6],[120.6,27],[121.5,28.4],[121.9,30],[121.9,31],[121,31.8],[120.8,32.6],[119.7,34.5],[120.6,36],[122.6,37],[121,37.8],[119,37.3],[118,38.5],[117.8,39],[121,39],[122.3,40.4],[124.4,39.9],[125,38.6],[126.2,37.6],[126.4,36],[126.4,34.6],[127.5,34.6],[128.6,35],[129.4,35.4],[129.3,36.5],[129.4,37.5],[128.4,38.6],[127.5,39.6],[128,40.5],[129.7,41],[130,42.3],[135,43],[135,45],[104,45]],
-[[130.9,33.9],[132.5,35.2],[134.5,35.6],[136,36],[136.8,37.4],[138.5,37.6],[139.5,38.8],[140,40.5],[140.9,41.4],[141.6,40.5],[142,39.4],[141,38],[140.9,36],[140.5,35.2],[139.8,35],[138.8,34.7],[137,34.6],[136,34],[135.2,33.5],[135,34.6],[133,34],[131.8,34]],
-[[129.7,33.2],[130.9,33.9],[131.9,33],[131.4,31.4],[130.5,31],[130.2,32]],
-[[121.5,25.3],[122,25],[121.6,23.5],[120.9,21.9],[120.2,23],[120.1,23.8],[121,25.1]],
-[[120.4,18.6],[121.5,18.4],[122.3,18.4],[122.2,16.6],[121.6,15.5],[121.5,14],[122.5,13.8],[123.7,13],[124,12.5],[123,13.2],[121,13.8],[120.6,14.4],[119.9,16]]];
-const CITY=[[121.55,25.05,'台北'],[120.3,22.6,'高雄'],[139.7,35.7,'東京'],[127,37.55,'首爾'],[114.2,22.3,'香港'],[121.5,31.2,'上海'],[121,14.6,'馬尼拉'],[119.3,26.1,'福州'],[127.7,26.2,'那霸']];
-const CTRY=[[111,31,'中國'],[127.6,36.4,'韓國'],[138,37,'日本'],[123.4,23.6,'台灣'],[122,16.6,'菲律賓']];
-function drawMap(){const k=S.v.k,w=x=>+(x/k).toFixed(2),T=TY(),gp=a=>a.map(q=>P(q).join(',')).join(' ');let s='';
- s+=LAND.map(pl=>`<path class="land" d="M${pl.map(q=>P(q).join(' ')).join('L')}Z"/>`).join('');
- if(S.ly.grid){for(let x=105;x<=150;x+=5){const X=(x-105)*20;s+=`<line class="gr" x1="${X}" y1="0" x2="${X}" y2="700" stroke-width="${w(.6)}"/><text class="gt" x="${X+2}" y="${w(11)}" font-size="${w(10)}">${x}°E</text>`}
-  for(let y=5;y<=40;y+=5){const Y=(40-y)*20;s+=`<line class="gr" x1="0" y1="${Y}" x2="900" y2="${Y}" stroke-width="${w(.6)}"/><text class="gt" x="2" y="${Y-2}" font-size="${w(10)}">${y}°N</text>`}}
- CITY.forEach(c=>{const[x,y]=P(c);s+=`<circle class="cy" cx="${x}" cy="${y}" r="${w(2.5)}"/><text class="ct" x="${x+w(4)}" y="${y+w(3)}" font-size="${w(10)}">${c[2]}</text>`});
- CTRY.forEach(c=>{const[x,y]=P(c);s+=`<text class="ct" x="${x}" y="${y}" font-size="${w(14)}" font-weight="600" text-anchor="middle" opacity=".5">${c[2]}</text>`});
- s+=`<g opacity="${S.op}">`;
- if(S.ly.hist){const h=hist(T);s+=`<polyline points="${gp(h)}" fill="none" stroke="#999" stroke-width="${w(2)}"/>`+h.map(q=>`<circle cx="${P(q)[0]}" cy="${P(q)[1]}" r="${w(2)}" fill="#999"/>`).join('')}
- vis().forEach(a=>bs().forEach(bb=>{const b=bb===S.batch?0:1,ps=pts(a,bb),dm=S.hl&&S.hl!==a.k?.12:1,da=b?`stroke-dasharray="${w(5)} ${w(4)}"`:'';
-  if(S.ly.trk&&ps.length>1){const A=ps.filter(p=>p.h<=S.hour),B=ps.filter(p=>p.h>=S.hour);
-   if(A.length>1)s+=`<polyline points="${gp(A)}" fill="none" stroke="${a.c}" stroke-width="${w(b?1.6:2.6)}" opacity="${dm}" ${da}/>`;
-   if(B.length>1)s+=`<polyline points="${gp(B)}" fill="none" stroke="${a.c}" stroke-width="${w(1.5)}" opacity="${.4*dm}" stroke-dasharray="${w(3)} ${w(4)}"/>`}
-  ps.forEach(p=>{const[x,y]=P([p.lon,p.lat]),cur=p.h===S.hour,o=(p.h<=S.hour?1:.5)*dm;
-   if(S.ly.cone&&!b&&p.h>0&&p.h<=S.hour)s+=`<circle cx="${x}" cy="${y}" r="${(p.cone/111*20).toFixed(1)}" fill="${a.c}" opacity="${.1*dm}"/>`;
-   if(S.ly.r30&&cur&&p.r30)s+=`<circle cx="${x}" cy="${y}" r="${(p.r30/111*20).toFixed(1)}" fill="none" stroke="${a.c}" stroke-width="${w(1.5)}" stroke-dasharray="${w(4)} ${w(3)}" opacity="${dm}"/>`;
-   if(S.ly.pt)s+=`<circle class="pt" data-a="${a.k}" data-h="${p.h}" data-b="${bb}" cx="${x}" cy="${y}" r="${w((S.ly.int?2.5+p.w/15:3.5)*(cur?1.5:1))}" fill="${b?'none':a.c}" stroke="${cur?'#fff':a.c}" stroke-width="${w(cur?2.5:1.5)}" opacity="${o}"/>`;
-   if(S.ly.lbl&&(cur||p.h%24===0)&&p.h>0)s+=`<text x="${x+w(6)}" y="${y-w(5)}" font-size="${w(10)}" font-weight="700" fill="${a.c}" opacity="${o}" stroke="var(--sea)" stroke-width="${w(2.5)}" paint-order="stroke">+${p.ld}h</text>`})}));
- const c=P(base(T,S.actual));s+=`<g aria-label="${T.name}中心"><circle cx="${c[0]}" cy="${c[1]}" r="${w(8)}" fill="var(--bg)" stroke="#c43d3d" stroke-width="${w(2)}"/><circle cx="${c[0]}" cy="${c[1]}" r="${w(2.5)}" fill="#c43d3d"/><text x="${c[0]+w(12)}" y="${c[1]+w(4)}" font-size="${w(10)}" font-weight="600" fill="var(--tx)" stroke="var(--sea)" stroke-width="${w(3)}" paint-order="stroke">歷史位置（模擬）</text></g></g>`;
- if(S.sel){const p=fc(T,AG.find(a=>a.k===S.sel.a),S.sel.b,S.sel.h);if(p){const q=P([p.lon,p.lat]);s+=`<circle cx="${q[0]}" cy="${q[1]}" r="${w(11)}" fill="none" stroke="var(--tx)" stroke-width="${w(1.5)}"/>`}}
- $('#vp').setAttribute('transform',`translate(${S.v.x} ${S.v.y}) scale(${k})`);$('#vp').innerHTML=s}
+/* ===== OpenStreetMap / Leaflet 渲染層 ===== */
+const mapView=new TyphoonMap('map',(agency,hour,batch)=>{S.hour=hour;showDet(agency,hour,batch);all()});
+function drawMap(){if(!D?.typhoons?.length)return;mapView.render({
+ typhoon:TY(),history:hist(TY()),actual:base(TY(),S.actual),hour:S.hour,
+ layers:S.ly,opacity:S.op,highlight:S.hl,selected:S.sel,
+ series:vis().flatMap(agency=>bs().map(batch=>({agency,batch,previous:batch!==S.batch,points:pts(agency,batch)})))
+})}
 /* ===== 面板 ===== */
 const TABS=[['lay','圖層設定','R'],['exp','匯出','R']];
 function updTabs(){$('#tabs').innerHTML=TABS.map(t=>`<button data-t="${t[0]}" class="${S.tab.R===t[0]?'on':''}">${t[1]}</button>`).join('');TABS.forEach(t=>$('#p_'+t[0]).classList.toggle('hide',S.tab.R!==t[0]))}
@@ -181,20 +160,11 @@ function showDet(k,h,b,keep){const a=AG.find(x=>x.k===k),T=TY(),p=fc(T,a,b,h);if
  $('#det').innerHTML=`<div class="row"><b class="sp">${TY().name}（${TY().id}）</b><button id="dx" aria-label="關閉">✕</button></div><table>`+[['預報機構',FN[k]],['發布時間',ft(issMs(a,b))+' '+TZ()],['有效時間',ft(D.T0+h*36e5)+' '+TZ()],['預報時效','+'+p.ld+'h'],['中心緯度',p.lat.toFixed(2)+'°N'],['中心經度',p.lon.toFixed(2)+'°E'],['最大持續風速',p.w+' m/s（'+a.avg+'平均）'],['最大陣風',p.gust?p.gust+' m/s':'—'],['中心最低氣壓',p.p+' hPa'],['強度分級',cls(p.w)],['移動',m],['暴風圈半徑',p.r30?p.r30+' km（30 kt）':'—'],['不確定性範圍',p.h?'約 '+p.cone+' km':'—'],['資料性質','模擬資料']].map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')+`</table>`;
  $('#det').classList.remove('hide');$('#dx').onclick=()=>{S.sel=null;$('#det').classList.add('hide');drawMap()}}
 /* ===== 互動 ===== */
-const svg=$('#map'),main=$('#main');let dr=null;
+const main=$('#main');
 const setH=h=>{S.hour=Math.max(0,Math.min(S.hor,h));all()},stop=()=>{clearInterval(S.play);S.play=null};
 const setActual=h=>{S.actual=Math.max(-48,Math.min(0,h));drawMap();updTl()};
 const togglePlay=()=>{if(S.play){stop();updTl();return}S.play=setInterval(()=>setActual(S.actual+6>0?-48:S.actual+6),S.speed);updTl()};
-svg.addEventListener('pointerdown',e=>{dr={x:e.clientX,y:e.clientY,vx:S.v.x,vy:S.v.y,m:0}});
-addEventListener('pointermove',e=>{if(!dr)return;const sc=svg.getScreenCTM().a;dr.m=Math.max(dr.m,Math.abs(e.clientX-dr.x)+Math.abs(e.clientY-dr.y));if(dr.m>4){S.v.x=dr.vx+(e.clientX-dr.x)/sc;S.v.y=dr.vy+(e.clientY-dr.y)/sc;drawMap()}});
-addEventListener('pointerup',()=>setTimeout(()=>dr=null,0));
-function zoom(f,cx=450,cy=350){const k=S.v.k,n=Math.max(1,Math.min(14,k*f));S.v.x=cx-(cx-S.v.x)*n/k;S.v.y=cy-(cy-S.v.y)*n/k;S.v.k=n;drawMap()}
-svg.addEventListener('wheel',e=>{e.preventDefault();const pt=new DOMPoint(e.clientX,e.clientY).matrixTransform(svg.getScreenCTM().inverse());zoom(e.deltaY<0?1.2:1/1.2,pt.x,pt.y)},{passive:false});
-$('#zi').onclick=()=>zoom(1.3);$('#zo').onclick=()=>zoom(1/1.3);$('#zr').onclick=()=>{S.v={k:1.8,x:-216,y:-244};drawMap()};
-svg.addEventListener('click',e=>{if(dr&&dr.m>4)return;const t=e.target;if(t.classList.contains('pt'))showDet(t.dataset.a,+t.dataset.h,+t.dataset.b)});
-svg.addEventListener('mouseover',e=>{const t=e.target;if(!t.classList.contains('pt'))return;const p=fc(TY(),AG.find(a=>a.k===t.dataset.a),+t.dataset.b,+t.dataset.h),r=$('#mapc').getBoundingClientRect(),g=$('#tip');
- g.textContent=`${t.dataset.a} +${p.ld}h｜${p.lat.toFixed(1)}N ${p.lon.toFixed(1)}E｜${p.w} m/s｜${p.p} hPa`;g.classList.remove('hide');g.style.left=Math.min(e.clientX-r.left+12,r.width-280)+'px';g.style.top=e.clientY-r.top+12+'px'});
-svg.addEventListener('mouseout',()=>$('#tip').classList.add('hide'));
+$('#zi').onclick=()=>mapView.map.zoomIn();$('#zo').onclick=()=>mapView.map.zoomOut();$('#zr').onclick=()=>mapView.reset();
 $('#tabs').onclick=e=>{if(e.target.dataset.t){S.tab.R=e.target.dataset.t;updTabs()}};
 $('#toggleAll').onclick=()=>{const available=AG.filter(a=>a.max),allSelected=available.every(a=>S.on.has(a.k));S.on=new Set(allSelected?[]:available.map(a=>a.k));S.hl=null;S.solo=false;S.sel=null;$('#det').classList.add('hide');all()};
 const sourceList=$('#ags');let sourceDrag=null;
@@ -214,7 +184,7 @@ sourceResize.addEventListener('pointerup',endResize);sourceResize.addEventListen
 sourceResize.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();resizeSources(+sourceResize.getAttribute('aria-valuenow')+(e.key==='ArrowRight'?16:-16))}});
 $('#lys').innerHTML=LY.map(l=>`<label><input type="checkbox" data-l="${l[0]}" checked> ${l[1]}</label>`).join('');
 $('#lys').onchange=e=>{S.ly[e.target.dataset.l]=e.target.checked?1:0;drawMap()};
-$('#op').oninput=e=>{S.op=e.target.value/100;drawMap()};$('#bm').onchange=e=>{svg.dataset.bm=e.target.value};
+$('#op').oninput=e=>{S.op=e.target.value/100;drawMap()};$('#bm').onchange=e=>mapView.setStyle(e.target.value);
 $('#is').oninput=e=>{S.batch=Math.max(0,Math.min(NB-1,Math.round(-Number(e.target.value)/6)));all()};
 $('#sl').oninput=e=>setActual(+e.target.value);$('#pv').onclick=()=>setActual(S.actual-6);$('#nx').onclick=()=>setActual(S.actual+6);$('#pl').onclick=togglePlay;$('#sp').onclick=e=>{const button=e.target.closest('[data-speed]');if(!button)return;S.speed=+button.dataset.speed;$('#sp').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b===button));if(S.play){stop();togglePlay()}};
 function syncTimezoneLabel(){$('#tzLabel').textContent=TZ()}
@@ -256,12 +226,12 @@ $('#xc').onclick=()=>modal('多國路徑比較 CSV（模擬資料）',['資料�
 $('#xg').onclick=()=>{const f=[];vis().forEach(a=>bs().forEach(b=>{const ps=pts(a,b);f.push({type:'Feature',properties:{agency:a.k,batch:b,mock:true},geometry:{type:'LineString',coordinates:ps.map(p=>[+p.lon.toFixed(3),+p.lat.toFixed(3)])}});
  ps.forEach(p=>f.push({type:'Feature',properties:{agency:a.k,batch:b,hour:p.h,wind_ms:p.w,pressure_hpa:p.p,mock:true},geometry:{type:'Point',coordinates:[+p.lon.toFixed(3),+p.lat.toFixed(3)]}}))}));
  modal('預測路徑 GeoJSON（模擬資料）',JSON.stringify({type:'FeatureCollection',features:f},null,1))};
-$('#xs').onclick=()=>{const st={ty:S.ty,actual:S.actual,h:S.hour,b:S.batch,o:+S.ov,a:[...S.on],bl:S.bl,tz:S.tz,v:S.v};modal('分享連結（含視角與查詢狀態）',location.href.split('#')[0]+'#'+encodeURIComponent(JSON.stringify(st)))};
-function restore(){try{const s=JSON.parse(decodeURIComponent(location.hash.slice(1)));S.ty=s.ty|0;S.actual=Math.max(-48,Math.min(0,Number(s.actual)||0));S.hour=s.h;S.batch=s.b;S.ov=!!s.o;S.on=new Set(s.a);S.bl=s.bl;S.tz=s.tz;S.v=s.v;$('#tz').value=S.tz;syncTimezoneLabel()}catch(_){}}
+$('#xs').onclick=()=>{const st={ty:S.ty,actual:S.actual,h:S.hour,b:S.batch,o:+S.ov,a:[...S.on],bl:S.bl,tz:S.tz,v:mapView.view};modal('分享連結（含視角與查詢狀態）',location.href.split('#')[0]+'#'+encodeURIComponent(JSON.stringify(st)))};
+function restore(){try{const s=JSON.parse(decodeURIComponent(location.hash.slice(1)));S.ty=s.ty|0;S.actual=Math.max(-48,Math.min(0,Number(s.actual)||0));S.hour=s.h;S.batch=s.b;S.ov=!!s.o;S.on=new Set(s.a);S.bl=s.bl;S.tz=s.tz;$('#tz').value=S.tz;syncTimezoneLabel();return s.v}catch(_){}}
 async function refresh(){$('#refresh').disabled=true;$('#sync').textContent='同步中…';D=await DS.load();$('#refresh').disabled=false;$('#sync').textContent=ft(D.synced)+' '+TZ()+'（模擬）';
  const none=!D.typhoons.length;$('#empty').classList.toggle('hide',!none);if(none)return;
  if(S.ty>=D.typhoons.length)S.ty=0;$('#typSel').value=TY().name;all()}
 $('#refresh').onclick=refresh;$('#lside').append($('#p_src'));updTabs();
 syncPanelButtons();
-refresh().then(()=>{restore();$('#typSel').value=TY().name;all()});setInterval(refresh,3e5);
+refresh().then(()=>{const view=restore();$('#typSel').value=TY().name;all();mapView.restoreView(view)});setInterval(refresh,3e5);
 </script></body></html>
