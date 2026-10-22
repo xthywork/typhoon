@@ -1,0 +1,238 @@
+<!DOCTYPE html><html lang="zh-Hant"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><title>多國颱風路徑比較（模擬資料）</title>
+<style>
+:root{--bg:#fff;--tx:#111;--mu:#737373;--bd:#dedede;--ft:#f5f5f5;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121212;--tx:#eee;--mu:#8f8f8f;--bd:#2a2a2a;--ft:#1b1b1b;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121212;--tx:#eee;--mu:#8f8f8f;--bd:#2a2a2a;--ft:#1b1b1b;color-scheme:dark}
+*{box-sizing:border-box}html,body{height:100%;margin:0}
+body{display:grid;grid-template-rows:auto 1fr;background:var(--bg);color:var(--tx);font:14px/1.55 system-ui,"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;overflow:hidden}
+button,select,input{font:inherit;color:inherit}button,select{background:none;border:0;padding:6px 10px;cursor:pointer}
+button{min-height:40px;border-radius:8px;transition:background-color .15s ease,border-color .15s ease}button:hover{background:var(--ft)}button:disabled{opacity:.55;cursor:wait}:focus-visible{outline:2px solid #2167d5;outline-offset:2px}
+.mu{color:var(--mu)}.hide{display:none!important}.sp{flex:1}
+header{position:relative;display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px;padding:10px 18px;border-bottom:1px solid var(--bd);background:var(--bg);z-index:8}
+header b{font-size:17px;font-weight:650;white-space:nowrap}
+#headActions button,#headActions select{border:1px solid var(--bd);min-height:40px}
+#headMain,#headActions{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px}#headMain{min-width:0}#headActions{margin-left:auto}#sync{white-space:nowrap}
+select{appearance:none;-webkit-appearance:none;min-height:40px;padding:7px 34px 7px 11px;border:1px solid var(--bd);border-radius:9px;background-color:var(--bg);background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='m1 1 5 5 5-5' fill='none' stroke='%23737373' stroke-width='1.5'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;color:var(--tx)}select option{background:var(--bg);color:var(--tx)}
+.typhoon-picker{position:relative;width:min(280px,38vw)}#typSel{width:100%;min-height:40px;padding:8px 12px;border:1px solid var(--bd);border-radius:9px;background:var(--bg);color:var(--tx)}#typSel::placeholder{color:var(--mu);opacity:1}
+.picker-options{position:absolute;top:calc(100% + 5px);left:0;right:0;z-index:12;max-height:min(320px,55vh);overflow:auto;padding:5px;background:var(--bg);border:1px solid var(--bd);border-radius:10px;box-shadow:0 8px 24px #0002}.picker-option{display:flex;width:100%;align-items:center;justify-content:space-between;gap:12px;padding:8px 10px;text-align:left;border-radius:7px}.picker-option[aria-selected="true"],.picker-option:hover{background:var(--ft)}.picker-option small{color:var(--mu);font-size:12px}.picker-empty{padding:10px;color:var(--mu)}
+#main{position:relative;min-height:0;display:grid;grid-template-columns:var(--source-width,350px) minmax(320px,1fr) 350px;transition:grid-template-columns .22s ease}#main.cll{grid-template-columns:0 minmax(320px,1fr) 350px}#lside,#sheet{overflow:auto;padding:16px 18px;background:var(--bg)}#lside{grid-column:1;grid-row:1;border-right:1px solid var(--bd)}#mapc{grid-column:2;grid-row:1}#sheet{grid-column:3;grid-row:1}#main.cll #lside{display:none}
+
+#main.cl{grid-template-columns:var(--source-width,350px) minmax(320px,1fr) 0}#main.cl.cll{grid-template-columns:0 minmax(320px,1fr) 0}#main.cl #sheet{display:none}
+#mapc{position:relative;min-width:0;overflow:hidden;background:var(--ft)}
+.panel-edge{position:absolute;top:50%;z-index:4;display:grid;place-items:center;width:18px;height:40px;padding:0;transform:translateY(-50%);background:var(--bg);border:1px solid var(--bd);box-shadow:0 1px 4px #00000010;font-size:20px;line-height:1}.panel-edge:hover{background:var(--ft)}.panel-edge[aria-expanded="true"]{background:var(--ft)}.panel-edge.left{left:0;border-left:0;border-radius:0 8px 8px 0}.panel-edge.right{right:0;border-right:0;border-radius:8px 0 0 8px}
+#map{width:100%;height:100%;display:block;touch-action:none;cursor:grab;--sea:var(--ft);--land:var(--bg);--gr:var(--bd);--mt:var(--mu)}
+#map[data-bm=dark]{--sea:#0e1217;--land:#1e252d;--gr:#333c46;--mt:#9aa6b2}
+#map[data-bm=terrain]{--sea:#e4eef2;--land:#eef0e2;--gr:#c4d0d4;--mt:#5d6b61}
+.sea{fill:var(--sea)}.land{fill:var(--land);stroke:var(--gr);stroke-width:1;vector-effect:non-scaling-stroke}
+.gr{stroke:var(--gr)}.gt,.ct{fill:var(--mt)}.cy{fill:var(--mt)}.pt{cursor:pointer}
+#mock{position:absolute;left:20px;top:16px;font-size:12px;color:var(--mu);pointer-events:none}#mock i{color:#e0a100;font-style:normal}
+#tools{position:absolute;left:16px;top:58px;display:flex;flex-direction:column;background:var(--bg);border:1px solid var(--bd);border-radius:10px;overflow:hidden;box-shadow:0 2px 10px #00000012}
+#tools button{width:44px;height:44px;padding:0;font-size:20px;border-radius:0}#tools button+button{border-top:1px solid var(--bd)}#zr{font-size:12px!important;font-weight:600}
+#dock{position:absolute;left:50%;bottom:16px;transform:translateX(-50%);width:calc(100% - 32px);max-width:1100px;background:var(--bg);border:1px solid var(--bd);border-radius:14px;padding:12px 16px;display:grid;gap:8px;box-shadow:0 3px 18px #00000012;transition:width .22s ease}
+.dr{display:grid;grid-template-columns:62px 1fr minmax(120px,170px);gap:14px;align-items:center}.dr input{width:100%;accent-color:var(--tx)}.dr output{font-variant-numeric:tabular-nums;text-align:right;font-size:12px}
+.dc{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:center}
+.chip{border:1px solid var(--bd);border-radius:99px;padding:5px 12px;min-height:34px}.chip.on,.seg.on{background:var(--tx);color:var(--bg);border-color:var(--tx)}
+#tip{position:absolute;pointer-events:none;background:var(--tx);color:var(--bg);padding:3px 9px;border-radius:6px;font-size:12px;white-space:nowrap}
+#det{position:absolute;right:20px;top:16px;width:270px;max-height:calc(100% - 180px);overflow:auto;background:var(--bg);border:1px solid var(--bd);border-radius:12px;padding:12px 16px}
+#det td{text-align:left}#det td:first-child{color:var(--mu);width:42%}
+#empty{position:absolute;inset:0;display:grid;place-items:center;background:var(--bg);text-align:center}
+#sheet{overflow:auto;border-left:1px solid var(--bd);padding:16px 18px;background:var(--bg)}
+.panelhead{position:sticky;top:-16px;z-index:2;margin:-16px -18px 10px;padding:10px 18px;background:var(--bg);border-bottom:1px solid var(--bd)}
+#dock .playback{gap:8px}#dock .playback button:not(#pl){border:1px solid var(--bd)}#dock .playback #pl{min-width:90px;background:var(--tx);color:var(--bg);font-weight:650}#dock .playback #pl:hover{opacity:.82}
+.batchrange{margin:10px 0 14px}
+#info h2{margin:0;font-size:18px;font-weight:600}#info dl{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;margin:10px 0 0}#info dt{color:var(--mu)}#info dd{margin:0}
+#tabs{display:flex;gap:4px;margin:14px 0;padding:4px;background:var(--ft);border:0;border-radius:11px}#tabs button{flex:1;min-width:0;padding:7px 10px;margin:0;color:var(--mu);border:0;border-radius:8px;white-space:nowrap}#tabs button.on{color:var(--tx);background:var(--bg);box-shadow:0 1px 4px #00000016;font-weight:650}
+.pn>*{margin-bottom:12px}label{display:block}.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.ag{display:grid;grid-template-columns:26px 14px minmax(0,1fr) 12px;gap:1px 7px;align-items:center;padding:7px 0;border-bottom:1px solid var(--bd)}.ag i{height:3px;border-radius:2px}.ag input{appearance:none;grid-column:1;grid-row:1/3;align-self:center;justify-self:center;margin:0;width:22px;height:22px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);display:grid;place-content:center;cursor:pointer;transition:background .15s,border-color .15s}.ag input::after{content:"";width:6px;height:11px;border:solid var(--bg);border-width:0 2px 2px 0;transform:translateY(-1px) rotate(45deg);visibility:hidden}.ag input:checked{background:var(--tx);border-color:var(--tx)}.ag input:checked::after{visibility:visible}.ag input:hover:not(:disabled){border-color:var(--tx)}.ag input:disabled{opacity:.35;cursor:not-allowed}.ag i{grid-column:2;grid-row:1}.ag .nm{grid-column:3;grid-row:1}#toggleAll{border:1px solid var(--bd);min-height:30px;padding:3px 10px;font-size:12px}#p_src .source-actions{display:flex;justify-content:flex-end;margin-bottom:4px}.ag small{grid-column:3;grid-row:2;color:var(--mu);font-size:11px;line-height:1.3;font-variant-numeric:tabular-nums}.ag .nm{font-weight:600;text-align:left;padding:0;min-height:24px;line-height:1.35;font-size:13px}.nm.on{text-decoration:underline}.nm span{pointer-events:none;font-weight:400;color:var(--mu);font-size:11px}.status-light{grid-column:4;grid-row:1;width:8px;height:8px;border-radius:50%;background:#858b94;box-shadow:0 0 0 2px #858b9418}.status-light.ok{background:#299764;box-shadow:0 0 0 2px #29976418}.status-light.late{background:#d59322;box-shadow:0 0 0 2px #d5932218}#lside .panelhead{margin-bottom:6px}
+
+.bd{font-size:12px;color:var(--mu)}.bd.late{color:#b26a00}.bd.none{color:#c0392b}
+table{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}th{color:var(--mu);font-weight:400;font-size:12px}th,td{padding:7px 4px;border-bottom:1px solid var(--bd);text-align:right}th:first-child,td:first-child{text-align:left}
+tr.rw{cursor:pointer}tr.rw:hover{background:var(--ft)}tr.miss td{color:var(--mu)}small.mu{display:block}
+.note{color:var(--mu);font-size:13px}.il{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--bd)}
+#modal{position:fixed;inset:0;background:#0006;display:grid;place-items:center;z-index:9}#modal>div{background:var(--bg);padding:16px;border-radius:12px;width:min(640px,92vw)}
+#modal textarea{width:100%;height:260px;background:var(--ft);color:var(--tx);border:1px solid var(--bd);font:11px monospace}
+@media(max-width:1050px){body{grid-template-rows:auto minmax(0,1fr)}header{gap:8px 12px;padding:9px 12px}#headActions{margin-left:0}#main,#main.cl,#main.cll,#main.cl.cll{grid-template-columns:minmax(0,1fr)}#lside,#sheet{position:absolute;top:0;bottom:0;width:min(92vw,390px);z-index:6;padding:14px 16px}#lside{left:0;box-shadow:8px 0 24px #0003}#sheet{right:0;box-shadow:-8px 0 24px #0003}#mapc{grid-column:1;grid-row:1}#main.cll #lside,#main.cl #sheet{display:none}.dr{grid-template-columns:86px minmax(60px,1fr) minmax(100px,150px);gap:6px 10px}.dr output{grid-column:auto;text-align:right}#dock{left:50%;right:auto;bottom:10px;width:calc(100% - 20px);transform:translateX(-50%);padding:10px 12px}#det{top:10px;bottom:auto;right:10px;left:auto;width:min(270px,52vw);max-height:calc(100% - 190px)}#main:not(.cll)::before,#main:not(.cl)::before{content:"";position:absolute;inset:0;z-index:5;background:#0004}#lside .panelhead,#sheet .panelhead{top:-14px;margin:-14px -16px 10px;padding:10px 16px}.panelhead .panel-edge{position:static;top:auto;transform:none;width:22px;height:36px;border:1px solid var(--bd);border-radius:6px;box-shadow:none;font-size:18px}}
+@media(max-width:560px){header{align-items:flex-start}#headMain,#headActions{width:100%;gap:6px 8px}#headActions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));margin:0}#headActions>*{min-width:0}#headActions .syncwrap{grid-column:1/-1}#headActions select,#headActions button{width:100%;text-align:center}header b{font-size:16px}.typhoon-picker{width:min(260px,62vw)}.dr{grid-template-columns:1fr auto;gap:2px 8px}.dr input{grid-column:1/-1;grid-row:2}.dr output{grid-column:2;grid-row:1;text-align:right;font-size:11px}.dc{gap:5px;justify-content:space-between}.dc .sp{display:none}#dock{left:50%;right:auto;bottom:8px;width:calc(100% - 16px);transform:translateX(-50%);padding:8px 10px;gap:4px;border-radius:12px}.dc button{padding:5px 8px;font-size:12px;min-height:36px}.dc select{min-height:36px;padding:4px 28px 4px 7px}#dock .playback{justify-content:space-between}#dock .playback button{padding:5px 7px;font-size:12px}#dock .playback #pl{min-width:70px}#tools{left:8px;top:8px}#tools button{width:40px;height:40px}#mock{left:58px;top:13px;font-size:11px}#det{top:56px;right:8px;left:58px;width:auto;max-height:calc(100% - 200px);padding:9px 11px}}
+#dock .dr{grid-template-columns:112px minmax(60px,1fr) minmax(190px,250px);gap:8px 12px}#dock .batchrange{margin:0}#dock .playback{justify-content:center;gap:4px}#dock .playback button,#dock .playback #pl{min-width:32px;width:32px;height:30px;min-height:30px;padding:0;font-size:16px;border-radius:6px}#dock .playback select{width:64px;min-height:30px;height:30px;padding:2px 20px 2px 6px;font-size:12px}@media(max-width:700px){#dock .dr{grid-template-columns:1fr auto;gap:0 6px}#dock .dr input{grid-column:1/-1;grid-row:2}#dock .dr output{grid-column:2;grid-row:1;font-size:10px}#dock .dr label{font-size:12px}}
+.ag input{touch-action:none}#sourceResize{position:absolute;left:calc(var(--source-width,350px) - 4px);top:0;bottom:0;width:8px;z-index:7;cursor:col-resize;touch-action:none}#sourceResize:hover,#sourceResize:focus-visible{background:color-mix(in srgb,var(--tx) 15%,transparent)}#main.cll #sourceResize{display:none}#main.resizing{transition:none;user-select:none}#main.resizing #sourceResize{background:var(--bd)}@media(max-width:1050px){#lside{width:min(var(--source-width,350px),92vw)}#sourceResize{left:calc(min(var(--source-width,350px),92vw) - 4px)}}
+header{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr)}header>.typhoon-picker{grid-column:2;grid-row:1;width:280px}#headMain{grid-column:1;grid-row:1}#headActions{grid-column:3;grid-row:1;justify-content:flex-end;margin-left:0;min-width:0}#headActions .syncwrap{white-space:normal}@media(max-width:1200px){#headActions{grid-column:1/-1;grid-row:2}header>.typhoon-picker{width:min(280px,38vw)}}@media(max-width:560px){header{grid-template-columns:minmax(0,1fr)}#headMain{grid-column:1;grid-row:1;justify-content:center}header>.typhoon-picker{grid-column:1;grid-row:2;justify-self:center;width:min(280px,100%)}#headActions{grid-column:1;grid-row:3}}
+#mapUpdated{position:absolute;top:12px;right:12px;z-index:2;font-size:11px;line-height:1.5;padding:3px 7px;border-radius:5px;background:var(--bg);pointer-events:none;max-width:calc(100% - 80px);text-align:right}@media(max-width:560px){#mapUpdated{top:42px;right:8px;font-size:10px}}
+.timezone-control{position:relative;width:112px;min-width:0}.timezone-control #tz{width:100%;color:transparent;cursor:pointer}.timezone-control #tz option{color:var(--tx);background:var(--bg)}#tzLabel{position:absolute;left:10px;top:50%;transform:translateY(-50%);pointer-events:none;color:var(--tx);font-size:13px;white-space:nowrap}@media(max-width:560px){.timezone-control{width:100%}}
+</style></head><body>
+<header><div id="headMain"><b>多國颱風路徑比較</b></div><div class="typhoon-picker"><input id="typSel" type="search" role="combobox" aria-label="搜尋或選擇颱風" aria-autocomplete="list" aria-expanded="false" aria-controls="typOptions" placeholder="搜尋颱風" autocomplete="off"><div id="typOptions" class="picker-options hide" role="listbox"></div></div>
+<div id="headActions"><button id="refresh">重新整理</button>
+<div class="timezone-control"><select id="tz" aria-label="時區"><option value="-10">UTC-10　夏威夷</option><option value="-8">UTC-8　北美太平洋（標準時間）</option><option value="-7">UTC-7　北美山區（標準時間）</option><option value="-6">UTC-6　北美中部（標準時間）</option><option value="-5">UTC-5　北美東部（標準時間）</option><option value="-4">UTC-4　大西洋（標準時間）</option><option value="-3">UTC-3　巴西・阿根廷</option><option value="0">UTC+0　協調世界時</option><option value="1">UTC+1　中歐（標準時間）</option><option value="2">UTC+2　東歐（標準時間）</option><option value="3">UTC+3　沙烏地阿拉伯</option><option value="4">UTC+4　阿拉伯聯合大公國</option><option value="5.5">UTC+5:30　印度</option><option value="7">UTC+7　泰國・越南</option><option value="8" selected>UTC+8　台灣・香港・新加坡</option><option value="9">UTC+9　日本・韓國</option><option value="9.5">UTC+9:30　澳洲中部（標準時間）</option><option value="10">UTC+10　澳洲東部（標準時間）</option><option value="12">UTC+12　紐西蘭（標準時間）</option></select><span id="tzLabel" aria-hidden="true">UTC+8</span></div></div></header>
+<div id="main" class="cl"><aside id="lside"><div class="row panelhead"><b class="sp" style="font-size:18px">來源</b></div></aside><div id="sourceResize" role="separator" tabindex="0" aria-label="調整來源面板寬度" aria-orientation="vertical" aria-valuemin="260" aria-valuemax="560" aria-valuenow="350"></div><section id="mapc"><svg id="map" viewBox="0 0 900 700" role="img" aria-label="颱風路徑地圖"><rect class="sea" width="900" height="700"/><g id="vp"></g></svg><button class="panel-edge left" id="tgL" aria-controls="lside" aria-expanded="false" aria-label="展開來源" title="展開來源">›</button><button class="panel-edge right" id="tg" aria-controls="sheet" aria-expanded="false" aria-label="展開設定面板" title="展開設定面板">‹</button>
+<div id="mapUpdated" class="mu" role="status">更新 <span id="sync">—</span></div>
+<div id="mock"><i>●</i> 模擬資料，非官方預報　<span id="mockT"></span></div>
+<div id="tools" role="group" aria-label="地圖縮放"><button id="zi" aria-label="放大地圖" title="放大地圖">＋</button><button id="zo" aria-label="縮小地圖" title="縮小地圖">－</button><button id="zr" aria-label="重設地圖視角" title="重設地圖視角">重設</button></div>
+<div id="tip" class="hide"></div><div id="det" class="hide"></div>
+<div id="empty" class="hide"><div><h2>目前沒有活躍颱風</h2><p class="mu">請稍後按「重新整理」。</p></div></div>
+<div id="dock"><div class="dr"><label for="sl" class="mu">颱風實際位置</label><input type="range" id="sl" min="-48" max="0" step="6" value="0" aria-label="颱風實際位置時間軸（模擬）"><output id="tlab"></output></div>
+<div class="dr batchrange"><label for="is" class="mu">預報發布批次</label><input type="range" id="is" min="0" max="4" step="1" value="4" aria-label="預報發布批次"><output id="ilab"></output></div><div class="dc playback"><button id="pv" aria-label="上一個位置時間" title="上一個位置時間">⏮</button><button id="pl" aria-label="播放實際位置時間軸" title="播放">▶</button><button id="nx" aria-label="下一個位置時間" title="下一個位置時間">⏭</button><select id="sp" aria-label="播放速度"><option value="1400">0.5×</option><option value="800" selected>1×</option><option value="400">2×</option><option value="200">4×</option></select></div></div></section>
+<aside id="sheet"><div class="row panelhead"><b class="sp" style="font-size:18px">設定面板</b></div><nav id="tabs"></nav>
+<div class="pn" id="p_src"><div class="source-actions"><button id="toggleAll" type="button" aria-controls="ags">全選</button></div><div id="ags"></div></div>
+<div class="pn hide" id="p_lay"><div id="lys"></div><label>透明度 <input type="range" id="op" min="10" max="100" value="100"></label><label>底圖 <select id="bm"><option value="light">簡約</option><option value="dark">深色</option><option value="terrain">地形</option></select></label></div>
+
+<div class="pn hide" id="p_exp"><div class="row"><button class="chip" id="xc">CSV</button><button class="chip" id="xg">GeoJSON</button><button class="chip" id="xs">分享連結</button></div><div class="note">發佈頁面無法直接下載檔案，內容會顯示在視窗中供複製。</div></div></aside></div>
+<div id="modal" class="hide"><div><div class="row"><b id="mt" class="sp"></b><button id="mcp">複製</button><button id="mx">關閉</button></div><textarea id="ma" readonly></textarea></div></div>
+<script>
+const $=s=>document.querySelector(s),p2=n=>String(n).padStart(2,'0');
+/* ===== 資料層（日後把 DS.load 換成真實 API；此處全為模擬資料） ===== */
+const AG=[
+{k:'CWA',c:'#e5484d',avg:'10 分鐘',max:120,bias:0,off:[0,0],iss:0,st:'ok',r:1},
+{k:'JMA',c:'#3e63dd',avg:'10 分鐘',max:120,bias:-2,off:[1,1.1],iss:0,st:'ok',r:1},
+{k:'KMA',c:'#30a46c',avg:'10 分鐘',max:72,bias:1,off:[1.8,1.4],iss:-3,st:'ok',note:'僅提供至 +72h'},
+{k:'HKO',c:'#f5a524',avg:'10 分鐘',max:120,bias:-1,off:[-.9,-1],iss:-6,st:'late'},
+{k:'JTWC',c:'#8e4ec6',avg:'1 分鐘',max:0,off:[0,0],iss:0,st:'none'},
+{k:'CMA',c:'#12a594',avg:'2 分鐘',max:120,bias:2,off:[-1.3,.4],iss:0,st:'ok',r:1}];
+const FN={CWA:'台灣中央氣象署',JMA:'日本氣象廳',KMA:'韓國氣象廳',HKO:'香港天文台',JTWC:'美國聯合颱風警報中心',CMA:'中國氣象局'};
+const ST={ok:'擷取成功',late:'成功・資料延遲',none:'無資料'};
+const DS={async load(){await new Promise(r=>setTimeout(r,200));
+ return{mock:true,T0:Date.UTC(2030,7,19,0),synced:Date.UTC(2030,7,19,0,30),typhoons:[
+ {id:'DEMO-01',name:'模擬颱風',st:[129,19.5],v:[-.075,.05],pk:48,pkH:50},
+ {id:'DEMO-02',name:'模擬熱帶低壓',st:[139,14],v:[-.06,.045],pk:22,pkH:60}]}}};
+const base=(T,t)=>[T.st[0]+T.v[0]*t,T.st[1]+T.v[1]*t+.00012*t*t];
+const wnd=(T,t)=>Math.max(15,T.pk*(1-Math.pow((t-T.pkH)/115,2)));
+function fc(T,a,b,h){const ld=h+6*b;if(!a.max||ld>a.max)return null;const s=h/120,q=(h+6*b)/120,bp=base(T,h),w=Math.round(wnd(T,h)+a.bias+b*1.5);
+ return{a:a.k,b,h,ld,lon:bp[0]+a.off[0]*s+b*.7*q,lat:bp[1]+a.off[1]*s+(b%2?-.4:.3)*b*.6*q,w,p:Math.round(1010-1.35*w),gust:a.k==='CWA'?Math.round(w*1.35):null,r30:a.r?Math.round(120+w*4):null,cone:Math.round(40+3.2*h)}}
+const hist=T=>{const o=[];for(let t=-48;t<=0;t+=6){const q=base(T,t);o.push([q[0],q[1]])}return o};
+/* ===== 狀態 ===== */
+const NB=5;let D,S={ty:0,actual:0,hour:0,hor:120,batch:0,ov:false,on:new Set(AG.filter(a=>a.max).map(a=>a.k)),hl:null,solo:false,bl:'CWA',tz:'8',op:1,chart:0,sel:null,tab:{L:'src',R:'lay'},v:{k:1.8,x:-216,y:-244},play:null,ly:{hist:1,trk:1,pt:1,lbl:1,cone:1,r30:1,int:1,grid:1}};
+const LY=[['hist','歷史颱風路徑'],['trk','官方預報路徑'],['pt','預測中心位置'],['lbl','預報時間標籤'],['cone','路徑機率（不確定性）範圍'],['r30','暴風圈範圍（30 kt）'],['int','颱風強度標記（點大小）'],['grid','經緯度格線']];
+const TY=()=>D.typhoons[S.ty],vis=()=>AG.filter(a=>S.on.has(a.k)&&a.max&&(!S.solo||!S.hl||S.hl===a.k)),bs=()=>S.ov&&S.batch+1<NB?[S.batch,S.batch+1]:[S.batch];
+const pts=(a,b)=>{const o=[];for(let h=0;h<=S.hor;h+=12){const p=fc(TY(),a,b,h);if(p)o.push(p)}return o};
+function availableHorizon(){let max=0;vis().forEach(a=>bs().forEach(b=>{const h=Math.floor((a.max-6*b)/12)*12;if(h>=0&&fc(TY(),a,b,h))max=Math.max(max,h)}));return max}
+const issMs=(a,b)=>D.T0+a.iss*36e5-b*216e5,TZ=()=>{const n=Number(S.tz)||0;return 'UTC'+(n>=0?'+':'-')+Math.floor(Math.abs(n))+(Math.abs(n)%1?':30':'')};
+const ft=ms=>{const d=new Date(ms+(Number(S.tz)||0)*36e5);return`${d.getUTCFullYear()}/${p2(d.getUTCMonth()+1)}/${p2(d.getUTCDate())} ${p2(d.getUTCHours())}:${p2(d.getUTCMinutes())}`};
+const cls=w=>w<17.2?'熱帶性低氣壓':w<32.7?'輕度颱風':w<51?'中度颱風':'強烈颱風';
+const dist=(a,b)=>{const R=6371,r=Math.PI/180,x=(b.lat-a.lat)*r,y=(b.lon-a.lon)*r,h=Math.sin(x/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(y/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
+const D8=['北','東北','東','東南','南','西南','西','西北'];
+const mv=(a,b)=>{const r=Math.PI/180,y=Math.sin((b.lon-a.lon)*r)*Math.cos(b.lat*r),x=Math.cos(a.lat*r)*Math.sin(b.lat*r)-Math.sin(a.lat*r)*Math.cos(b.lat*r)*Math.cos((b.lon-a.lon)*r);return D8[Math.round(((Math.atan2(y,x)/r+360)%360)/45)%8]};
+/* ===== 地圖渲染層 ===== */
+const P=q=>[+((q[0]-105)*20).toFixed(1),+((40-q[1])*20).toFixed(1)];
+const LAND=[[[104,41],[104,22],[106.5,21.6],[108,21.5],[109.7,21.2],[110.5,20.3],[111.5,21.4],[113.5,22.1],[114.3,22.4],[116.5,23.2],[118.2,24.4],[119.6,25.6],[120.6,27],[121.5,28.4],[121.9,30],[121.9,31],[121,31.8],[120.8,32.6],[119.7,34.5],[120.6,36],[122.6,37],[121,37.8],[119,37.3],[118,38.5],[117.8,39],[121,39],[122.3,40.4],[124.4,39.9],[125,38.6],[126.2,37.6],[126.4,36],[126.4,34.6],[127.5,34.6],[128.6,35],[129.4,35.4],[129.3,36.5],[129.4,37.5],[128.4,38.6],[127.5,39.6],[128,40.5],[129.7,41],[130,42.3],[135,43],[135,45],[104,45]],
+[[130.9,33.9],[132.5,35.2],[134.5,35.6],[136,36],[136.8,37.4],[138.5,37.6],[139.5,38.8],[140,40.5],[140.9,41.4],[141.6,40.5],[142,39.4],[141,38],[140.9,36],[140.5,35.2],[139.8,35],[138.8,34.7],[137,34.6],[136,34],[135.2,33.5],[135,34.6],[133,34],[131.8,34]],
+[[129.7,33.2],[130.9,33.9],[131.9,33],[131.4,31.4],[130.5,31],[130.2,32]],
+[[121.5,25.3],[122,25],[121.6,23.5],[120.9,21.9],[120.2,23],[120.1,23.8],[121,25.1]],
+[[120.4,18.6],[121.5,18.4],[122.3,18.4],[122.2,16.6],[121.6,15.5],[121.5,14],[122.5,13.8],[123.7,13],[124,12.5],[123,13.2],[121,13.8],[120.6,14.4],[119.9,16]]];
+const CITY=[[121.55,25.05,'台北'],[120.3,22.6,'高雄'],[139.7,35.7,'東京'],[127,37.55,'首爾'],[114.2,22.3,'香港'],[121.5,31.2,'上海'],[121,14.6,'馬尼拉'],[119.3,26.1,'福州'],[127.7,26.2,'那霸']];
+const CTRY=[[111,31,'中國'],[127.6,36.4,'韓國'],[138,37,'日本'],[123.4,23.6,'台灣'],[122,16.6,'菲律賓']];
+function drawMap(){const k=S.v.k,w=x=>+(x/k).toFixed(2),T=TY(),gp=a=>a.map(q=>P(q).join(',')).join(' ');let s='';
+ s+=LAND.map(pl=>`<path class="land" d="M${pl.map(q=>P(q).join(' ')).join('L')}Z"/>`).join('');
+ if(S.ly.grid){for(let x=105;x<=150;x+=5){const X=(x-105)*20;s+=`<line class="gr" x1="${X}" y1="0" x2="${X}" y2="700" stroke-width="${w(.6)}"/><text class="gt" x="${X+2}" y="${w(11)}" font-size="${w(10)}">${x}°E</text>`}
+  for(let y=5;y<=40;y+=5){const Y=(40-y)*20;s+=`<line class="gr" x1="0" y1="${Y}" x2="900" y2="${Y}" stroke-width="${w(.6)}"/><text class="gt" x="2" y="${Y-2}" font-size="${w(10)}">${y}°N</text>`}}
+ CITY.forEach(c=>{const[x,y]=P(c);s+=`<circle class="cy" cx="${x}" cy="${y}" r="${w(2.5)}"/><text class="ct" x="${x+w(4)}" y="${y+w(3)}" font-size="${w(10)}">${c[2]}</text>`});
+ CTRY.forEach(c=>{const[x,y]=P(c);s+=`<text class="ct" x="${x}" y="${y}" font-size="${w(14)}" font-weight="600" text-anchor="middle" opacity=".5">${c[2]}</text>`});
+ s+=`<g opacity="${S.op}">`;
+ if(S.ly.hist){const h=hist(T);s+=`<polyline points="${gp(h)}" fill="none" stroke="#999" stroke-width="${w(2)}"/>`+h.map(q=>`<circle cx="${P(q)[0]}" cy="${P(q)[1]}" r="${w(2)}" fill="#999"/>`).join('')}
+ vis().forEach(a=>bs().forEach(bb=>{const b=bb===S.batch?0:1,ps=pts(a,bb),dm=S.hl&&S.hl!==a.k?.12:1,da=b?`stroke-dasharray="${w(5)} ${w(4)}"`:'';
+  if(S.ly.trk&&ps.length>1){const A=ps.filter(p=>p.h<=S.hour),B=ps.filter(p=>p.h>=S.hour);
+   if(A.length>1)s+=`<polyline points="${gp(A)}" fill="none" stroke="${a.c}" stroke-width="${w(b?1.6:2.6)}" opacity="${dm}" ${da}/>`;
+   if(B.length>1)s+=`<polyline points="${gp(B)}" fill="none" stroke="${a.c}" stroke-width="${w(1.5)}" opacity="${.4*dm}" stroke-dasharray="${w(3)} ${w(4)}"/>`}
+  ps.forEach(p=>{const[x,y]=P([p.lon,p.lat]),cur=p.h===S.hour,o=(p.h<=S.hour?1:.5)*dm;
+   if(S.ly.cone&&!b&&p.h>0&&p.h<=S.hour)s+=`<circle cx="${x}" cy="${y}" r="${(p.cone/111*20).toFixed(1)}" fill="${a.c}" opacity="${.1*dm}"/>`;
+   if(S.ly.r30&&cur&&p.r30)s+=`<circle cx="${x}" cy="${y}" r="${(p.r30/111*20).toFixed(1)}" fill="none" stroke="${a.c}" stroke-width="${w(1.5)}" stroke-dasharray="${w(4)} ${w(3)}" opacity="${dm}"/>`;
+   if(S.ly.pt)s+=`<circle class="pt" data-a="${a.k}" data-h="${p.h}" data-b="${bb}" cx="${x}" cy="${y}" r="${w((S.ly.int?2.5+p.w/15:3.5)*(cur?1.5:1))}" fill="${b?'none':a.c}" stroke="${cur?'#fff':a.c}" stroke-width="${w(cur?2.5:1.5)}" opacity="${o}"/>`;
+   if(S.ly.lbl&&(cur||p.h%24===0)&&p.h>0)s+=`<text x="${x+w(6)}" y="${y-w(5)}" font-size="${w(10)}" font-weight="700" fill="${a.c}" opacity="${o}" stroke="var(--sea)" stroke-width="${w(2.5)}" paint-order="stroke">+${p.ld}h</text>`})}));
+ const c=P(base(T,S.actual));s+=`<g aria-label="${T.name}中心"><circle cx="${c[0]}" cy="${c[1]}" r="${w(8)}" fill="var(--bg)" stroke="#c43d3d" stroke-width="${w(2)}"/><circle cx="${c[0]}" cy="${c[1]}" r="${w(2.5)}" fill="#c43d3d"/><text x="${c[0]+w(12)}" y="${c[1]+w(4)}" font-size="${w(10)}" font-weight="600" fill="var(--tx)" stroke="var(--sea)" stroke-width="${w(3)}" paint-order="stroke">歷史位置（模擬）</text></g></g>`;
+ if(S.sel){const p=fc(T,AG.find(a=>a.k===S.sel.a),S.sel.b,S.sel.h);if(p){const q=P([p.lon,p.lat]);s+=`<circle cx="${q[0]}" cy="${q[1]}" r="${w(11)}" fill="none" stroke="var(--tx)" stroke-width="${w(1.5)}"/>`}}
+ $('#vp').setAttribute('transform',`translate(${S.v.x} ${S.v.y}) scale(${k})`);$('#vp').innerHTML=s}
+/* ===== 面板 ===== */
+const TABS=[['lay','圖層設定','R'],['exp','匯出','R']];
+function updTabs(){$('#tabs').innerHTML=TABS.map(t=>`<button data-t="${t[0]}" class="${S.tab.R===t[0]?'on':''}">${t[1]}</button>`).join('');TABS.forEach(t=>$('#p_'+t[0]).classList.toggle('hide',S.tab.R!==t[0]))}
+function updAgs(){const allSelected=AG.filter(a=>a.max).every(a=>S.on.has(a.k));$('#toggleAll').textContent=allSelected?'取消全選':'全選';$('#ags').innerHTML=AG.map(a=>`<div class="ag"><input type="checkbox" data-k="${a.k}" ${S.on.has(a.k)?'checked':''} ${a.max?'':'disabled'} aria-label="${FN[a.k]}"><i style="background:${a.c}"></i><button class="nm ${S.hl===a.k?'on':''}" data-k="${a.k}" ${a.max?'':'disabled'} title="聚焦此提供商，再點一次恢復" aria-pressed="${S.hl===a.k}">${FN[a.k]} <span>${a.k}</span></button><span class="status-light ${a.st}" role="img" tabindex="0" aria-label="${ST[a.st]}${a.note?'；'+a.note:''}" title="${ST[a.st]}${a.note?'；'+a.note:''}"></span>${a.max?`<small>${ft(issMs(a,S.batch))}</small>`:''}</div>`).join('')}
+
+function updTl(){$('#sl').value=S.actual;$('#is').value=NB-1-S.batch;$('#pv').disabled=S.actual<=-48;$('#nx').disabled=S.actual>=0;
+ $('#ilab').textContent=ft(D.T0-S.batch*216e5)+' '+TZ();$('#tlab').textContent=`${ft(D.T0+S.actual*36e5)} ${TZ()}（模擬）`;
+ $('#pl').textContent=S.play?'Ⅱ':'▶';$('#pl').setAttribute('aria-label',S.play?'暫停實際位置動畫':'播放實際位置動畫');$('#pl').title=S.play?'暫停':'播放';$('#pl').setAttribute('aria-pressed',!!S.play)}
+function all(){S.hor=availableHorizon();S.hour=Math.min(S.hour,S.hor);drawMap();updAgs();updTl();if(S.sel)showDet(S.sel.a,S.sel.h,S.sel.b,1)}
+function showDet(k,h,b,keep){const a=AG.find(x=>x.k===k),T=TY(),p=fc(T,a,b,h);if(!p){$('#det').classList.add('hide');return}S.sel={a:k,h,b};if(!keep)drawMap();
+ const pr=h>=12?fc(T,a,b,h-12):null,m=pr?`向${mv(pr,p)}，${(dist(pr,p)/12).toFixed(0)} km/h`:'—';
+ $('#det').innerHTML=`<div class="row"><b class="sp">${TY().name}（${TY().id}）</b><button id="dx" aria-label="關閉">✕</button></div><table>`+[['預報機構',FN[k]],['發布時間',ft(issMs(a,b))+' '+TZ()],['有效時間',ft(D.T0+h*36e5)+' '+TZ()],['預報時效','+'+p.ld+'h'],['中心緯度',p.lat.toFixed(2)+'°N'],['中心經度',p.lon.toFixed(2)+'°E'],['最大持續風速',p.w+' m/s（'+a.avg+'平均）'],['最大陣風',p.gust?p.gust+' m/s':'—'],['中心最低氣壓',p.p+' hPa'],['強度分級',cls(p.w)],['移動',m],['暴風圈半徑',p.r30?p.r30+' km（30 kt）':'—'],['不確定性範圍',p.h?'約 '+p.cone+' km':'—'],['資料性質','模擬資料']].map(r=>`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')+`</table>`;
+ $('#det').classList.remove('hide');$('#dx').onclick=()=>{S.sel=null;$('#det').classList.add('hide');drawMap()}}
+/* ===== 互動 ===== */
+const svg=$('#map'),main=$('#main');let dr=null;
+const setH=h=>{S.hour=Math.max(0,Math.min(S.hor,h));all()},stop=()=>{clearInterval(S.play);S.play=null};
+const setActual=h=>{S.actual=Math.max(-48,Math.min(0,h));drawMap();updTl()};
+const togglePlay=()=>{if(S.play){stop();updTl();return}S.play=setInterval(()=>setActual(S.actual+6>0?-48:S.actual+6),+$('#sp').value);updTl()};
+svg.addEventListener('pointerdown',e=>{dr={x:e.clientX,y:e.clientY,vx:S.v.x,vy:S.v.y,m:0}});
+addEventListener('pointermove',e=>{if(!dr)return;const sc=svg.getScreenCTM().a;dr.m=Math.max(dr.m,Math.abs(e.clientX-dr.x)+Math.abs(e.clientY-dr.y));if(dr.m>4){S.v.x=dr.vx+(e.clientX-dr.x)/sc;S.v.y=dr.vy+(e.clientY-dr.y)/sc;drawMap()}});
+addEventListener('pointerup',()=>setTimeout(()=>dr=null,0));
+function zoom(f,cx=450,cy=350){const k=S.v.k,n=Math.max(1,Math.min(14,k*f));S.v.x=cx-(cx-S.v.x)*n/k;S.v.y=cy-(cy-S.v.y)*n/k;S.v.k=n;drawMap()}
+svg.addEventListener('wheel',e=>{e.preventDefault();const pt=new DOMPoint(e.clientX,e.clientY).matrixTransform(svg.getScreenCTM().inverse());zoom(e.deltaY<0?1.2:1/1.2,pt.x,pt.y)},{passive:false});
+$('#zi').onclick=()=>zoom(1.3);$('#zo').onclick=()=>zoom(1/1.3);$('#zr').onclick=()=>{S.v={k:1.8,x:-216,y:-244};drawMap()};
+svg.addEventListener('click',e=>{if(dr&&dr.m>4)return;const t=e.target;if(t.classList.contains('pt'))showDet(t.dataset.a,+t.dataset.h,+t.dataset.b)});
+svg.addEventListener('mouseover',e=>{const t=e.target;if(!t.classList.contains('pt'))return;const p=fc(TY(),AG.find(a=>a.k===t.dataset.a),+t.dataset.b,+t.dataset.h),r=$('#mapc').getBoundingClientRect(),g=$('#tip');
+ g.textContent=`${t.dataset.a} +${p.ld}h｜${p.lat.toFixed(1)}N ${p.lon.toFixed(1)}E｜${p.w} m/s｜${p.p} hPa`;g.classList.remove('hide');g.style.left=Math.min(e.clientX-r.left+12,r.width-280)+'px';g.style.top=e.clientY-r.top+12+'px'});
+svg.addEventListener('mouseout',()=>$('#tip').classList.add('hide'));
+$('#tabs').onclick=e=>{if(e.target.dataset.t){S.tab.R=e.target.dataset.t;updTabs()}};
+$('#toggleAll').onclick=()=>{const available=AG.filter(a=>a.max),allSelected=available.every(a=>S.on.has(a.k));S.on=new Set(allSelected?[]:available.map(a=>a.k));S.hl=null;S.solo=false;S.sel=null;$('#det').classList.add('hide');all()};
+const sourceList=$('#ags');let sourceDrag=null;
+function clearSourceDetail(){S.sel=null;$('#det').classList.add('hide')}
+function paintSources(y){if(!sourceDrag)return;const lo=Math.min(y,sourceDrag.y),hi=Math.max(y,sourceDrag.y);sourceList.querySelectorAll('.ag').forEach(row=>{const rect=row.getBoundingClientRect(),input=row.querySelector('input'),k=input.dataset.k;if(input.disabled||sourceDrag.visited.has(k)||hi<rect.top||lo>rect.bottom)return;sourceDrag.visited.add(k);sourceDrag.checked?S.on.add(k):S.on.delete(k)});sourceDrag.y=y;if(S.hl&&!S.on.has(S.hl))S.hl=null;clearSourceDetail();all()}
+sourceList.addEventListener('pointerdown',e=>{const input=e.target.closest('input[type="checkbox"]');if(!input||input.disabled||e.button!==0)return;e.preventDefault();sourceDrag={id:e.pointerId,checked:!input.checked,y:e.clientY,visited:new Set()};sourceList.setPointerCapture(e.pointerId);paintSources(e.clientY)});
+sourceList.addEventListener('pointermove',e=>{if(sourceDrag?.id===e.pointerId)paintSources(e.clientY)});
+function endSourceDrag(e){if(sourceDrag?.id!==e.pointerId)return;sourceDrag=null;if(sourceList.hasPointerCapture(e.pointerId))sourceList.releasePointerCapture(e.pointerId)}
+sourceList.addEventListener('pointerup',endSourceDrag);sourceList.addEventListener('pointercancel',endSourceDrag);sourceList.addEventListener('lostpointercapture',()=>{sourceDrag=null});
+sourceList.addEventListener('click',e=>{const target=e.target.closest('[data-k]');if(!target)return;const k=target.dataset.k,a=AG.find(a=>a.k===k);if(!a?.max)return;if(target.type==='checkbox'){if(e.detail>0){e.preventDefault();return}target.checked?S.on.add(k):S.on.delete(k);if(S.hl===k&&!target.checked)S.hl=null}else{if(!S.on.has(k))return;S.hl=S.hl===k?null:k}S.solo=false;clearSourceDetail();all()});
+const sourceResize=$('#sourceResize');let resizePointer=null;
+function resizeSources(width){const max=Math.max(260,Math.min(560,main.clientWidth-(matchMedia('(max-width:1050px)').matches?24:320+(main.classList.contains('cl')?0:350))));const value=Math.round(Math.max(260,Math.min(max,width)));main.style.setProperty('--source-width',value+'px');sourceResize.setAttribute('aria-valuenow',value);sourceResize.setAttribute('aria-valuemax',max)}
+sourceResize.addEventListener('pointerdown',e=>{if(e.button!==0)return;e.preventDefault();resizePointer=e.pointerId;sourceResize.setPointerCapture(e.pointerId);main.classList.add('resizing')});
+sourceResize.addEventListener('pointermove',e=>{if(resizePointer===e.pointerId)resizeSources(e.clientX-main.getBoundingClientRect().left)});
+function endResize(e){if(resizePointer!==e.pointerId)return;resizePointer=null;main.classList.remove('resizing');if(sourceResize.hasPointerCapture(e.pointerId))sourceResize.releasePointerCapture(e.pointerId)}
+sourceResize.addEventListener('pointerup',endResize);sourceResize.addEventListener('pointercancel',endResize);sourceResize.addEventListener('lostpointercapture',()=>{resizePointer=null;main.classList.remove('resizing')});
+sourceResize.addEventListener('keydown',e=>{if(e.key==='ArrowLeft'||e.key==='ArrowRight'){e.preventDefault();resizeSources(+sourceResize.getAttribute('aria-valuenow')+(e.key==='ArrowRight'?16:-16))}});
+$('#lys').innerHTML=LY.map(l=>`<label><input type="checkbox" data-l="${l[0]}" checked> ${l[1]}</label>`).join('');
+$('#lys').onchange=e=>{S.ly[e.target.dataset.l]=e.target.checked?1:0;drawMap()};
+$('#op').oninput=e=>{S.op=e.target.value/100;drawMap()};$('#bm').onchange=e=>{svg.dataset.bm=e.target.value};
+$('#is').oninput=e=>{S.batch=NB-1-+e.target.value;all()};
+$('#sl').oninput=e=>setActual(+e.target.value);$('#pv').onclick=()=>setActual(S.actual-6);$('#nx').onclick=()=>setActual(S.actual+6);$('#pl').onclick=togglePlay;$('#sp').onchange=()=>{if(S.play){stop();togglePlay()}};
+function syncTimezoneLabel(){$('#tzLabel').textContent=TZ()}
+$('#tz').onchange=e=>{S.tz=e.target.value;syncTimezoneLabel();all()};
+
+let activeTyphoon=-1;
+function setActiveTyphoon(i){activeTyphoon=i;const opts=[...$('#typOptions').querySelectorAll('[role="option"]')];opts.forEach(o=>o.setAttribute('aria-selected',+o.dataset.index===i));const active=$(`#ty-option-${i}`);if(active){$('#typSel').setAttribute('aria-activedescendant',active.id);active.scrollIntoView({block:'nearest'})}}
+function renderTyphoonOptions(query=''){
+ if(!D?.typhoons)return;const q=query.trim().toLocaleLowerCase(),items=D.typhoons.map((t,i)=>({t,i})).filter(({t})=>!q||`${t.name} ${t.id}`.toLocaleLowerCase().includes(q)),menu=$('#typOptions');menu.innerHTML='';
+ if(!items.length){const empty=document.createElement('div');empty.className='picker-empty';empty.textContent='找不到符合的颱風';menu.append(empty);activeTyphoon=-1;$('#typSel').removeAttribute('aria-activedescendant')}
+ else{items.forEach(({t,i})=>{const b=document.createElement('button');b.type='button';b.className='picker-option';b.id=`ty-option-${i}`;b.setAttribute('role','option');b.dataset.index=i;const name=document.createElement('span');name.textContent=t.name;const id=document.createElement('small');id.textContent=t.id;b.append(name,id);menu.append(b)});activeTyphoon=items.some(({i})=>i===S.ty)?S.ty:items[0].i;setActiveTyphoon(activeTyphoon)}
+ menu.classList.remove('hide');$('#typSel').setAttribute('aria-expanded','true')
+}
+function closeTyphoonOptions(){const menu=$('#typOptions');menu.classList.add('hide');$('#typSel').setAttribute('aria-expanded','false');$('#typSel').removeAttribute('aria-activedescendant')}
+function chooseTyphoon(i){if(!D?.typhoons[i])return;S.ty=i;S.actual=0;$('#typSel').value=TY().name;S.sel=null;$('#det').classList.add('hide');closeTyphoonOptions();all()}
+$('#typSel').addEventListener('focus',()=>renderTyphoonOptions(''));
+$('#typSel').addEventListener('input',e=>renderTyphoonOptions(e.target.value));
+$('#typSel').addEventListener('keydown',e=>{if(e.key==='Escape'){closeTyphoonOptions();return}if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if($('#typOptions').classList.contains('hide'))renderTyphoonOptions(e.target.value);const opts=[...$('#typOptions').querySelectorAll('[role="option"]')];if(!opts.length)return;const at=opts.findIndex(o=>+o.dataset.index===activeTyphoon),step=e.key==='ArrowDown'?1:-1,next=at<0?(step>0?0:opts.length-1):Math.max(0,Math.min(opts.length-1,at+step));setActiveTyphoon(+opts[next].dataset.index)}else if(e.key==='Enter'&&!$('#typOptions').classList.contains('hide')){e.preventDefault();if(activeTyphoon>=0)chooseTyphoon(activeTyphoon)}});
+$('#typOptions').onmousedown=e=>{if(e.target.closest('[role="option"]'))e.preventDefault()};
+$('#typOptions').onclick=e=>{const option=e.target.closest('[role="option"]');if(option)chooseTyphoon(+option.dataset.index)};
+$('#typOptions').onmousemove=e=>{const option=e.target.closest('[role="option"]');if(option)setActiveTyphoon(+option.dataset.index)};
+$('#typSel').addEventListener('blur',()=>setTimeout(closeTyphoonOptions,120));
+document.addEventListener('click',e=>{if(!e.target.closest('.typhoon-picker'))closeTyphoonOptions()});
+const NAR=()=>matchMedia('(max-width:1050px)').matches;
+function syncPanelButtons(){const l=!main.classList.contains('cll'),r=!main.classList.contains('cl'),lb=$('#tgL'),rb=$('#tg');lb.textContent=l?'‹':'›';rb.textContent=r?'›':'‹';lb.setAttribute('aria-expanded',l);rb.setAttribute('aria-expanded',r);lb.setAttribute('aria-label',l?'收合來源與設定面板':'展開來源與設定面板');rb.setAttribute('aria-label',r?'收合設定面板':'展開設定面板');lb.title=lb.getAttribute('aria-label');rb.title=rb.getAttribute('aria-label');(NAR()&&l?$('#lside .panelhead'):$('#mapc')).append(lb);(NAR()&&r?$('#sheet .panelhead'):$('#mapc')).append(rb)}
+function setP(s,open){const c=s==='L'?'cll':'cl',o=s==='L'?'cl':'cll';main.classList.toggle(c,!open);if(open&&NAR())main.classList.add(o);syncPanelButtons()}
+$('#tgL').onclick=()=>setP('L',main.classList.contains('cll'));$('#tg').onclick=()=>setP('R',main.classList.contains('cl'));
+main.addEventListener('click',e=>{if(e.target!==main||!NAR())return;if(!main.classList.contains('cll'))setP('L',false);else if(!main.classList.contains('cl'))setP('R',false)});
+matchMedia('(max-width:1050px)').onchange=()=>{main.classList.add('cl','cll');syncPanelButtons()};
+addEventListener('keydown',e=>{if(/INPUT|SELECT|TEXTAREA/.test(e.target.tagName)&&e.key!=='Escape')return;
+ if(e.key==='ArrowRight')setActual(S.actual+6);else if(e.key==='ArrowLeft')setActual(S.actual-6);else if(e.key===' '&&e.target===document.body){e.preventDefault();togglePlay()}
+ else if(e.key==='Escape'){$('#modal').classList.add('hide');S.sel=null;$('#det').classList.add('hide');drawMap()}});
+/* 匯出：發佈頁面不支援直接下載，改以視窗顯示內容並可複製 */
+function modal(t,txt){$('#mt').textContent=t;$('#ma').value=txt;$('#modal').classList.remove('hide');$('#ma').select()}
+$('#mx').onclick=()=>$('#modal').classList.add('hide');
+$('#mcp').onclick=async()=>{const a=$('#ma');a.select();try{await navigator.clipboard.writeText(a.value)}catch(_){try{document.execCommand('copy')}catch(__){}}$('#mcp').textContent='已複製';setTimeout(()=>$('#mcp').textContent='複製',1200)};
+const rows=()=>{const o=[];vis().forEach(a=>bs().forEach(b=>pts(a,b).forEach(p=>o.push({a,b,p}))));return o};
+$('#xc').onclick=()=>modal('多國路徑比較 CSV（模擬資料）',['資料性質,機構,批次,發布時間('+TZ()+'),有效時間('+TZ()+'),預報時效h,經度,緯度,最大風速m/s,風速平均時間,中心氣壓hPa'].concat(rows().map(({a,b,p})=>['模擬',a.k,'批次'+b+'（0=最新）',ft(issMs(a,b)),ft(D.T0+p.h*36e5),p.ld,p.lon.toFixed(2),p.lat.toFixed(2),p.w,a.avg,p.p].join(','))).join('\n'));
+$('#xg').onclick=()=>{const f=[];vis().forEach(a=>bs().forEach(b=>{const ps=pts(a,b);f.push({type:'Feature',properties:{agency:a.k,batch:b,mock:true},geometry:{type:'LineString',coordinates:ps.map(p=>[+p.lon.toFixed(3),+p.lat.toFixed(3)])}});
+ ps.forEach(p=>f.push({type:'Feature',properties:{agency:a.k,batch:b,hour:p.h,wind_ms:p.w,pressure_hpa:p.p,mock:true},geometry:{type:'Point',coordinates:[+p.lon.toFixed(3),+p.lat.toFixed(3)]}}))}));
+ modal('預測路徑 GeoJSON（模擬資料）',JSON.stringify({type:'FeatureCollection',features:f},null,1))};
+$('#xs').onclick=()=>{const st={ty:S.ty,actual:S.actual,h:S.hour,b:S.batch,o:+S.ov,a:[...S.on],bl:S.bl,tz:S.tz,v:S.v};modal('分享連結（含視角與查詢狀態）',location.href.split('#')[0]+'#'+encodeURIComponent(JSON.stringify(st)))};
+function restore(){try{const s=JSON.parse(decodeURIComponent(location.hash.slice(1)));S.ty=s.ty|0;S.actual=Math.max(-48,Math.min(0,Number(s.actual)||0));S.hour=s.h;S.batch=s.b;S.ov=!!s.o;S.on=new Set(s.a);S.bl=s.bl;S.tz=s.tz;S.v=s.v;$('#tz').value=S.tz;syncTimezoneLabel()}catch(_){}}
+async function refresh(){$('#refresh').disabled=true;$('#sync').textContent='同步中…';D=await DS.load();$('#refresh').disabled=false;$('#sync').textContent=ft(D.synced)+' '+TZ()+'（模擬）';
+ const none=!D.typhoons.length;$('#empty').classList.toggle('hide',!none);if(none)return;
+ if(S.ty>=D.typhoons.length)S.ty=0;$('#typSel').value=TY().name;all()}
+$('#refresh').onclick=refresh;$('#lside').append($('#p_src'));updTabs();
+syncPanelButtons();
+refresh().then(()=>{restore();$('#typSel').value=TY().name;all()});setInterval(refresh,3e5);
+</script></body></html>
