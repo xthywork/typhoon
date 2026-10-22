@@ -1,0 +1,34 @@
+{
+  "version": 8,
+  "name": "Typhoon / Local OSM coastlines",
+  "sources": {
+    "coastlines": {
+      "type": "geojson",
+      "data": {
+        "type": "FeatureCollection",
+        "features": []
+      },
+      "maxzoom": 7,
+      "tolerance": 0.3,
+      "attribution": "\u00a9 OpenStreetMap contributors"
+    }
+  },
+  "layers": [
+    {
+      "id": "land",
+      "type": "background",
+      "paint": {
+        "background-color": "#f5f5ef"
+      }
+    },
+    {
+      "id": "water",
+      "type": "fill",
+      "source": "coastlines",
+      "paint": {
+        "fill-color": "#dce9ed",
+        "fill-outline-color": "#b5ced5"
+      }
+    }
+  ]
+}

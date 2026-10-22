@@ -1,0 +1,25 @@
+/* Quiet, low-saturation cartography; forecast colors stay unfiltered. */
+#map{position:absolute;inset:0;width:100%;height:100%;z-index:0;background:#e8eff1;outline-offset:-3px;cursor:grab}
+#map:active{cursor:grabbing}
+#map[data-bm=dark]{background:#17242f}
+#map .leaflet-gl-layer{pointer-events:none}
+#map .leaflet-control-attribution{font:10px/1.6 system-ui,sans-serif;color:#596b74;background:#ffffffed;padding:1px 6px;border-radius:5px 0 0 0}
+#map .leaflet-control-attribution a{color:#3c5967}
+#map .leaflet-control-scale{margin:0 0 7px 12px}
+#map .leaflet-control-scale-line{font:10px/1.4 system-ui,sans-serif;border-color:#647780;background:#ffffffd9;color:#435964;border-width:0 1px 2px;text-shadow:none;padding:2px 5px}
+#map .leaflet-tooltip{font:12px/1.6 system-ui,sans-serif;border:1px solid var(--bd);background:var(--bg);color:var(--tx);border-radius:7px;padding:6px 10px;box-shadow:0 3px 12px #20313d18}
+#map .leaflet-tooltip:before{display:none}
+#map .center-label{padding:2px 7px;font-size:11px;border:0;box-shadow:0 1px 6px #20313d12}
+.forecast-label{font:600 10px/18px system-ui,sans-serif;color:#405561;text-shadow:0 1px 2px white,1px 0 2px white,-1px 0 2px white;white-space:nowrap;pointer-events:none}
+#map[data-bm=dark] .forecast-label{color:#f2f6f8;text-shadow:0 1px 2px #152029,1px 0 2px #152029}
+.storm-center{display:grid;place-items:center;border:2px solid #c43d3d;border-radius:50%;background:#fff;box-shadow:0 0 0 5px #c43d3d16,0 2px 6px #20313d20}
+.storm-center span{width:6px;height:6px;border-radius:50%;background:#c43d3d}
+#tools{z-index:3;box-shadow:0 3px 14px #253e4918}
+#dock{z-index:3;bottom:32px;box-shadow:0 4px 24px #253e491a}
+#mock{z-index:2;max-width:calc(100% - 40px);padding:4px 9px;top:12px;left:14px;background:var(--bg);border:1px solid var(--bd);border-radius:6px;font-size:11px}
+#mapUpdated{z-index:2}
+#det{z-index:4;top:52px}
+#empty{z-index:5}
+#mapStatus{position:absolute;top:54px;left:72px;right:16px;z-index:2;width:fit-content;max-width:calc(100% - 88px);font-size:12px;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:6px;padding:6px 10px;pointer-events:none}
+@media(max-width:1050px){#dock{bottom:30px}}
+@media(max-width:560px){#mock{left:58px;top:10px;font-size:10px;padding:3px 6px}#mapUpdated{top:40px}#mapStatus{top:68px;left:58px;max-width:calc(100% - 66px)}#dock{bottom:30px}#det{top:72px}#map .leaflet-control-attribution{font-size:9px}#map .leaflet-control-scale{margin-left:8px}}

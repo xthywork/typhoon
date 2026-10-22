@@ -1,0 +1,20 @@
+{
+  "source": "OpenStreetMap via OpenFreeMap / OpenMapTiles",
+  "source_tiles": "https://tiles.openfreemap.org/planet/20261018_080001_pt/{z}/{x}/{y}.pbf",
+  "global_source_zoom": 2,
+  "detailed_source_zoom": 6,
+  "detailed_bounds": [
+    95,
+    -5,
+    165,
+    55
+  ],
+  "tile_count": 198,
+  "source_bytes": 26475435,
+  "local_bytes": 3756680,
+  "sha256": "3e9ce68c8e844252504df9b6bab24345e888c89696218343a7402b43fcc9fd20",
+  "license": "ODbL-1.0",
+  "copyright": "\u00a9 OpenStreetMap contributors",
+  "build": "uv run scripts/build-local-basemap.py",
+  "compressed_bytes": 1089604
+}
