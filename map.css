@@ -27,3 +27,11 @@
 /* Keep the merged compact timeline clear of the map attribution. */
 #dock.radio-dock{bottom:32px}
 @media(max-width:1050px){#dock.radio-dock{bottom:30px}}
+
+/* Compact official intensity summary; provider list remains selection-only. */
+.storm-summary{position:absolute;top:52px;right:14px;z-index:2;width:244px;padding:9px 11px;background:var(--bg);color:var(--tx);border:1px solid var(--bd);border-radius:8px;box-shadow:0 2px 8px #20313d0a;pointer-events:none;font-size:11px}.storm-summary-title{display:flex;justify-content:space-between;gap:8px;align-items:center;font-size:11px}.storm-summary-title span{color:var(--mu);font:10px ui-monospace,monospace}.storm-summary dl{display:grid;grid-template-columns:1fr 1fr;gap:5px 12px;margin:8px 0}.storm-summary dl>div{display:flex;flex-direction:column;gap:1px}.storm-summary dt{font-size:10px;color:var(--mu)}.storm-summary dd{margin:0;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums}.wind-legend{display:flex;flex-wrap:wrap;gap:4px 10px;border-top:1px solid var(--bd);padding-top:6px;font-size:10px}.wind-legend span::before{content:"";display:inline-block;width:10px;height:2px;margin-right:4px;vertical-align:middle}.wind15-key::before{background:#b6842c}.wind25-key::before{background:#c45454}.summary-note{color:var(--mu);font-size:9px;margin-top:4px;line-height:1.4}.cone-key::before{content:"";display:inline-block;width:12px;margin-right:4px;border-top:1px dashed #6183aa;vertical-align:middle}@media(max-width:560px){.storm-summary{top:66px;right:8px;width:192px;padding:7px 9px}.storm-summary dd{font-size:12px}.storm-summary dl{gap:4px 8px;margin:6px 0}.storm-summary-title{font-size:10px}.storm-summary-title span{font-size:9px}.wind-legend{gap:3px 5px;font-size:9px}.summary-note{font-size:8px}}
+
+#map .node-hit{cursor:pointer}#map .forecast-tooltip strong{font-weight:600}#map .forecast-tooltip{font-variant-numeric:tabular-nums}
+
+/* Keep CWA analysis visible while inspecting any provider forecast. */
+#stormSummary:not(.hide) ~ #det{top:var(--summary-bottom,250px);max-height:max(72px,calc(100% - var(--summary-bottom,250px) - 148px))}

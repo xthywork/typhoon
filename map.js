@@ -1,4 +1,17 @@
 /* Leaflet 1.9.4 + OpenStreetMap. Weather data is supplied by the page. */
+// Great-circle destination, used for the official four quadrant radii.
+function windQuadrantPolygon(point, radii) {
+  const quadrants=['NE','SE','SW','NW'];
+  if(!radii||!quadrants.every(key=>Number.isFinite(radii[key])&&radii[key]>0))return null;
+  const rad=Math.PI/180,lat=point.lat*rad,lon=point.lon*rad,outline=[];
+  quadrants.forEach((key,index)=>{const distance=radii[key]/6371;
+    for(let angle=index*90;angle<=index*90+90;angle+=5){const bearing=angle*rad,
+      y=Math.asin(Math.sin(lat)*Math.cos(distance)+Math.cos(lat)*Math.sin(distance)*Math.cos(bearing)),
+      x=lon+Math.atan2(Math.sin(bearing)*Math.sin(distance)*Math.cos(lat),Math.cos(distance)-Math.sin(lat)*Math.sin(y));
+      outline.push([y/rad,x/rad]);}
+  });return outline;
+}
+
 class TyphoonMap {
   constructor(id, onSelect) {
     this.onSelect = onSelect;
@@ -104,13 +117,20 @@ class TyphoonMap {
     });
   }
 
+  clearWeather() { this.group.clearLayers(); this.snapshot = null; }
+
+  nodeTooltip(point, agency, snapshot) {
+    const date=snapshot.formatTime(point.time),wind=point.w==null?'未提供':point.w.toFixed(1)+' m/s',pressure=point.p==null?'未提供':point.p+' hPa';
+    return `<strong>${agency}</strong><br>${date}<br>風速 ${wind} · 氣壓 ${pressure}`;
+  }
+
   render(snapshot) {
     const changed = this.snapshot?.typhoon.id !== snapshot.typhoon.id;
     this.snapshot = snapshot;
     // Establish the real storm viewport before requesting any map tiles.
     if (changed) this.reset();
     this.group.clearLayers();
-    const { history, actual, layers, opacity, highlight, hour, series, selected } = snapshot;
+    const { history, actual, layers, opacity, highlight, hour, series, selected, weather } = snapshot;
     const add = layer => layer.addTo(this.group);
     const line = (coords, options) => add(L.polyline(coords, {
       interactive: false, lineCap: 'round', lineJoin: 'round', ...options
@@ -123,10 +143,29 @@ class TyphoonMap {
     }
     if (layers.hist) {
       line(history.map(p => [p[1], p[0]]), { pane: 'history', color: '#647780', weight: 2, opacity: 0.65 * opacity });
-      history.forEach(p => add(L.circleMarker([p[1], p[0]], {
-        pane: 'history', radius: 2.5, color: '#fff', weight: 1,
-        fillColor: '#647780', fillOpacity: opacity, opacity, interactive: false
-      })));
+      history.forEach((p,index) => {
+        add(L.circleMarker([p[1],p[0]],{pane:'history',radius:2.5,color:'#fff',weight:1,fillColor:'#647780',fillOpacity:opacity,opacity,interactive:false}));
+        const record=snapshot.historyRecords?.[index];
+        if(record){const target=add(L.circleMarker([p[1],p[0]],{pane:'history',radius:12,stroke:false,fillOpacity:0,interactive:true,className:'history-node node-hit'}));
+          target.bindTooltip(this.nodeTooltip(record,snapshot.typhoon.historyAgency,snapshot),{direction:'top',offset:[0,-10],className:'forecast-tooltip',sticky:true});}
+      });
+    }
+
+    if(weather?.point){
+      const p=weather.point;
+      for(const [layer,radiusField,quadrantField,color,level] of [
+        ['wind15','windRadius15ms','windRadii15ms','#b6842c','15'],
+        ['wind25','windRadius25ms','windRadii25ms','#c45454','25']]){
+        if(!layers[layer])continue;
+        const radius=p[radiusField],outline=windQuadrantPolygon(p,p[quadrantField]);
+        if(!outline&&!(Number.isFinite(radius)&&radius>0))continue;
+        const options={pane:'areas',color,weight:1.5,opacity:.8*opacity,
+          fillColor:color,fillOpacity:(level==='15'?.07:.1)*opacity,
+          interactive:false,className:'wind-area wind-'+level};
+        const shape=outline?L.polygon(outline,options):L.circle([p.lat,p.lon],{...options,radius:radius*1000});
+        add(shape);Object.assign(shape.getElement().dataset,{agency:weather.agency.k,
+          time:p.time,radius:radius??'',geometry:outline?'quadrants':'circle'});
+      }
     }
     series.forEach(({ agency, batch, previous, points }) => {
       const dim = highlight && highlight !== agency.k ? 0.12 : 1;
@@ -135,22 +174,22 @@ class TyphoonMap {
       if (layers.trk && points.length > 1) {
         // White casing keeps overlapping tracks legible against city labels and coastlines.
         line(latlngs(points), { pane: 'tracks', color: '#fff', weight: 5, opacity: alpha * 0.7 });
-        const past = points.filter(p => p.h <= hour), future = points.filter(p => p.h >= hour);
-        if (past.length > 1) line(latlngs(past), {
+        line(latlngs(points), {
           pane: 'tracks', color: agency.c, weight: highlight === agency.k ? 3.5 : 2.5,
-          opacity: alpha, dashArray: previous ? '5 5' : null
-        });
-        if (future.length > 1) line(latlngs(future), {
-          pane: 'tracks', color: agency.c, weight: 2,
-          opacity: alpha * 0.75, dashArray: '5 6'
+          opacity: alpha * 0.85, dashArray: previous ? '4 5' : '5 6'
         });
       }
       points.forEach(p => {
         const current = p.h === hour;
-        if (layers.cone && !previous && p.h > 0 && p.h <= hour) add(L.circle([p.lat, p.lon], {
-          pane: 'areas', radius: p.cone * 1000, stroke: false,
-          fillColor: agency.c, fillOpacity: alpha * 0.07, interactive: false
-        }));
+        if (layers.cone && !previous && agency.k===weather?.agency.k && p.ld>0 && p.cone>0 &&
+            (!selected || (selected.a===agency.k && selected.h===p.h && selected.b===batch))) {
+          const area=add(L.circle([p.lat,p.lon],{
+            pane:'areas',radius:p.cone*1000,color:'#6183aa',weight:1,
+            opacity:alpha*(selected?.a===agency.k?.75:.4),dashArray:'3 5',
+            fillColor:'#6183aa',fillOpacity:alpha*(selected?.a===agency.k?.07:.025),
+            interactive:false,className:'probability-area'
+          }));Object.assign(area.getElement().dataset,{agency:agency.k,lead:p.ld,radius:p.cone});
+        }
         if (layers.r30 && current && p.r30) add(L.circle([p.lat, p.lon], {
           pane: 'areas', radius: p.r30 * 1000, color: agency.c,
           weight: 1.2, opacity: alpha, dashArray: '4 5',
@@ -158,16 +197,11 @@ class TyphoonMap {
         }));
         const pointAlpha = alpha * (p.h <= hour ? 1 : 0.8);
         if (layers.pt) {
-          const marker = add(L.circleMarker([p.lat, p.lon], {
-            pane: 'points', radius: (layers.int ? 2.3 + p.w / 18 : 4) * (current ? 1.4 : 1),
-            color: '#fff', weight: current ? 2 : 1.3,
-            fillColor: agency.c, fillOpacity: pointAlpha,
-            opacity: pointAlpha, className: 'pt'
-          }));
-          Object.assign(marker.getElement().dataset, { a: agency.k, h: p.h, b: batch });
-          marker.bindTooltip(`${agency.k} +${p.ld}h · ${p.lat.toFixed(1)}°N ${p.lon.toFixed(1)}°E<br>${p.w} m/s · ${p.p} hPa（模擬）`, {
-            direction: 'top', offset: [0, -6], className: 'forecast-tooltip'
-          });
+          const radius=(layers.int?2.3+(p.w??20)/18:4)*(current?1.4:1);
+          add(L.circleMarker([p.lat,p.lon],{pane:'points',radius,color:'#fff',weight:current?2:1.3,fillColor:agency.c,fillOpacity:pointAlpha,opacity:pointAlpha,interactive:false,className:'forecast-dot'}));
+          const marker=add(L.circleMarker([p.lat,p.lon],{pane:'points',radius:Math.max(12,radius+8),stroke:false,fillOpacity:0,interactive:true,className:'pt node-hit'}));
+          Object.assign(marker.getElement().dataset,{a:agency.k,h:p.h,b:batch});
+          marker.bindTooltip(this.nodeTooltip(p,agency.k,snapshot),{direction:'top',offset:[0,-10],className:'forecast-tooltip',sticky:true});
           marker.on('click', () => this.onSelect(agency.k, p.h, batch));
         }
         if (layers.lbl && p.h > 0 && (current || p.h % 24 === 0)) {
@@ -181,9 +215,9 @@ class TyphoonMap {
             color: agency.c, weight: 2, fillOpacity: 0, interactive: false }));
       });
     });
-    add(L.marker([actual[1], actual[0]], {
+    if(actual)add(L.marker([actual[1], actual[0]], {
       pane: 'center', interactive: false, opacity,
       icon: L.divIcon({ className: 'storm-center', html: '<span></span>', iconSize: [22, 22], iconAnchor: [11, 11] })
-    })).bindTooltip('歷史位置（模擬）', { permanent: true, direction: 'right', offset: [12, 0], className: 'center-label', opacity });
+    })).bindTooltip('CWA 分析位置', { permanent: true, direction: 'right', offset: [12, 0], className: 'center-label', opacity });
   }
 }
