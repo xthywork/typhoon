@@ -2,18 +2,20 @@
 
 以 OpenStreetMap 底圖與 Leaflet 1.9.4／MapLibre GL JS 5.6.2 顯示颱風歷史位置、各機構預測路徑、暴風圈及不確定範圍。
 
-**目前所有氣象資料均為模擬資料，非官方預報。**
+目前已接入 CWA 正式會員 API，以及 JMA、HKO、CMA 官方公開產品，並保留來源與真實發布／產品更新時間。KMA 等待認證與正式 adapter，JTWC 在此環境尚無法連線。詳細限制與申請方式見 [官方資料串接說明](docs/official-data.md)。
 
 ## 本機啟動
 
 ```sh
-python3 -m http.server 8001 --bind 0.0.0.0
+python3 server.py --port 8000 --bind 0.0.0.0
 ```
 
-開啟 `http://localhost:8001/`；其他區域網裝置使用主機的 IP 與相同連接埠。
-地圖函式庫、樣式與海岸資料都存放在專案內，開啟網站時不需要外部圖磚服務或網際網路連線。區域網裝置仍需連得上提供 HTTP 服務的主機。
+開啟 `http://localhost:8000/`；其他區域網裝置使用主機的 IP 與相同連接埠。
+地圖函式庫、樣式與海岸資料都存放在專案內，底圖載入不需要外部圖磚服務；官方氣象資料更新需要由伺服器連上網際網路。區域網裝置仍需連得上提供 HTTP 服務的主機。
 
 本地底圖以全球概覽為基礎，東經 95°–165°、南緯 5°–北緯 55° 使用較詳細的海岸資料，涵蓋台灣與西北太平洋。高倍率縮放沿用本地海岸輪廓，不會下載額外的街道細節。海岸資料採快照，不會自動更新。
+
+資料服務需要 Python 3.10+ 與 `curl`，有人請求資料且距離上一輪擷取已超過一小時才更新，歷史批次保存在不加入 Git 的 `.cache/weather.sqlite3`。原本的靜態 HTTP server 不支援官方資料 API。
 
 ## 地圖操作
 
@@ -44,3 +46,13 @@ uv run scripts/build-local-basemap.py
 
 [Leaflet](https://leafletjs.com/) 採 BSD 2-Clause 授權，完整授權見 `vendor/leaflet/LICENSE`。
 [MapLibre GL JS](https://maplibre.org/) 與 Leaflet 整合套件的授權見 `vendor/maplibre/`。
+
+## 本次 API 合併與驗證
+
+其他開發分支合併前請閱讀 [API 與時間軸整合說明](docs/integration/backend-api-adjustments.md)，其中列出啟動方式、毫秒時間戳、快取與風圈同步的相容性要求。
+
+執行不需網路或真實金鑰的後端檢查：
+
+```sh
+python3 -m unittest discover -s tests -v
+```
