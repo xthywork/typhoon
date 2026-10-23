@@ -88,7 +88,7 @@ class TyphoonMap {
         status.classList.remove('hide');
       });
     });
-    L.control.scale({ position: 'bottomleft', imperial: false, maxWidth: 100 }).addTo(this.map);
+    this.scaleControl = L.control.scale({ position: 'bottomleft', imperial: false, maxWidth: 100 }).addTo(this.map);
     ['grid', 'history', 'areas', 'tracks', 'points', 'center'].forEach((name, i) => {
       this.map.createPane(name).style.zIndex = 350 + i * 20;
     });
@@ -96,12 +96,23 @@ class TyphoonMap {
     this.map.on('moveend zoomend', () => this.updateView());
     this.resizeObserver = new ResizeObserver(() => {
       cancelAnimationFrame(this.resizeFrame);
-      this.resizeFrame = requestAnimationFrame(() => this.map.invalidateSize({ pan: false }));
+      this.resizeFrame = requestAnimationFrame(() => {
+        const container = this.map.getContainer();
+        // Dialog previews temporarily move/hide the map. Preserve its center
+        // across size changes and avoid resetting it while the dialog is hidden.
+        if (container.clientWidth && container.clientHeight)
+          this.map.invalidateSize({ pan: true, animate: false });
+      });
     });
     this.resizeObserver.observe(document.getElementById(id));
     this.setStyle('light');
     // Initialize the local basemap even when no cyclone is active.
     this.map.setView([23.5, 128], 4, { animate: false });
+  }
+
+  setCompactControls(compact) {
+    this.map.attributionControl.setPosition(compact ? 'topright' : 'bottomright');
+    this.scaleControl.setPosition(compact ? 'topleft' : 'bottomleft');
   }
 
   async loadCoastlines() {

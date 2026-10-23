@@ -24,7 +24,7 @@
 @media(max-width:1050px){#dock{bottom:30px}}
 @media(max-width:560px){#mock{left:58px;top:10px;font-size:10px;padding:3px 6px}#mapUpdated{top:40px}#mapStatus{top:68px;left:58px;max-width:calc(100% - 66px)}#dock{bottom:30px}#det{top:72px}#map .leaflet-control-attribution{font-size:9px}#map .leaflet-control-scale{margin-left:8px}}
 
-/* Keep the merged compact timeline clear of the map attribution. */
+/* Desktop timeline leaves room for map attribution. */
 #dock.radio-dock{bottom:32px}
 @media(max-width:1050px){#dock.radio-dock{bottom:30px}}
 
@@ -35,3 +35,187 @@
 
 /* Keep CWA analysis visible while inspecting any provider forecast. */
 #stormSummary:not(.hide) ~ #det{top:var(--summary-bottom,250px);max-height:max(72px,calc(100% - var(--summary-bottom,250px) - 148px))}
+
+/* Phone basic mode. Keep the desktop controls and data model intact. */
+.mobile-header-action,.mobile-panel-close,.mobile-band-name{display:none}
+@media (max-width:700px), (max-width:950px) and (max-height:500px) and (pointer:coarse){
+ :root{padding:0}
+ html,body{height:100%;height:100dvh}
+ header{grid-template-columns:minmax(0,1fr) 100px;gap:6px 8px;padding:max(5px,env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 9px max(12px,env(safe-area-inset-left))}
+ #headMain{grid-column:1/-1;grid-row:1;display:grid;grid-template-columns:44px minmax(0,1fr) 44px;gap:8px;width:100%;align-items:center}
+ #headMain b{text-align:center;font-size:16px;line-height:1.3;white-space:normal}
+ .mobile-header-action,.mobile-panel-close{display:grid;place-items:center;width:44px;height:44px;min-height:44px;padding:10px;flex:none;touch-action:manipulation}
+ .mobile-header-action svg,.mobile-panel-close svg{display:block;width:23px;height:23px;pointer-events:none}
+ .mobile-header-action[aria-expanded=true]{background:var(--ft)}
+ header>.typhoon-picker{grid-column:1;grid-row:2;width:100%;justify-self:stretch}
+ #headActions{grid-column:2;grid-row:2;display:block;width:100%;margin:0}
+ #typSel{height:42px;min-height:42px;font-size:16px;padding:8px 11px}
+ .timezone-control{width:100%}.timezone-control #tz{min-height:42px;height:42px;padding-left:10px}
+ #tzLabel{font-size:13px}
+ #refresh,#stormSummary,#tools,#mock,#tgL,#tg,#sourceResize{display:none!important}
+ #mapUpdated{top:44px;right:8px;font-size:10px;max-width:calc(100% - 16px);padding:2px 6px}
+ #mapStatus{top:8px;left:8px;right:8px;max-width:calc(100% - 16px)}
+ #main,#main.cl,#main.cll,#main.cl.cll{grid-template-columns:minmax(0,1fr);transition:none}
+ #main:not(.cll)::before,#main:not(.cl)::before{display:none}
+ #lside,#sheet{position:fixed;inset:0;width:100%;height:100dvh;z-index:30;grid-column:auto;grid-row:auto;padding:0 max(16px,env(safe-area-inset-right)) max(20px,env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));border:0;box-shadow:none;overscroll-behavior:contain}
+ #lside .panelhead,#sheet .panelhead{top:0;margin:0 -16px 16px;padding:max(10px,env(safe-area-inset-top)) 16px 10px;min-height:68px;flex-wrap:nowrap}
+ #tabs,#p_exp{display:none!important}
+ #p_src .source-actions{margin-bottom:12px}
+ #toggleAll{min-height:44px;padding:8px 14px;font-size:14px}
+ .ag{min-height:60px;padding:9px 0;grid-template-columns:32px 16px minmax(0,1fr) 12px;gap:10px}
+ .ag input{width:26px;height:26px}.ag .nm{min-height:44px;font-size:15px;white-space:normal}.nm span{font-size:12px}
+ #lys label{display:flex;align-items:center;gap:10px;min-height:44px;font-size:15px}
+ #lys input[type=checkbox]{width:21px;height:21px;margin:0;accent-color:var(--tx)}
+ #p_lay>label{font-size:15px;margin:18px 0}#bm{display:block;width:100%;margin-top:8px;min-height:44px}#op{width:70%;vertical-align:middle}
+ #dock.radio-dock{bottom:0;width:100%;max-width:none;padding:8px max(12px,env(safe-area-inset-right)) max(8px,env(safe-area-inset-bottom)) max(12px,env(safe-area-inset-left));border-radius:12px 12px 0 0;border-bottom:0;gap:3px}
+ #dock .shared-axis{display:none}
+ #dock .tuner-band{grid-template-columns:36px minmax(0,1fr);grid-template-rows:18px 30px;gap:0 8px;min-height:50px;padding:1px 0}
+ #dock .band-heading label{grid-column:1;grid-row:1/3;font-size:13px;font-weight:600;gap:0;opacity:1;cursor:default}
+ #dock .band-heading input,#dock .desktop-band-name,#syncPlayback{display:none!important}
+ .mobile-band-name{display:inline}
+ #dock .band-heading output{grid-column:2;grid-row:1;justify-self:stretch;text-align:center;font-size:12px;line-height:18px;min-width:0}
+ #dock .tuning-scale{grid-column:2;grid-row:2;height:30px;min-width:0}
+ #dock .tuning-scale .tick-bed{inset:3px 12px 0}
+ #dock .tuning-scale .tick-bed::before{top:10px;height:2px;border-radius:2px}
+ #dock .tuning-scale input[type=range]{top:-5px;left:0;height:44px;touch-action:pan-y}
+ #dock .tuning-scale input::-webkit-slider-runnable-track{height:44px}
+ #dock .tuning-scale input::-moz-range-track{height:44px}
+ #dock .tuning-scale input::-webkit-slider-thumb{width:24px;height:44px}
+ #dock .tuning-scale input::-moz-range-thumb{width:24px;height:44px}
+ #dock .tuning-needle,#dock .tuning-scale:hover .tuning-needle{top:1px;width:10px;height:24px;border-radius:4px}
+ #dock .playback{padding:4px 6px 3px;gap:4px;border-radius:12px 12px 0 0}
+ #dock .playback button{width:48px;min-width:48px;height:44px;min-height:44px;border-radius:7px}
+ #dock .playback #pl{width:72px;min-width:72px;height:44px;min-height:44px;border-radius:7px}
+ #dock .playback button svg{width:20px;height:20px}
+ #dock .radio-footer{padding-top:3px;flex-wrap:nowrap;gap:4px}
+ #dock .timeline-actions{min-width:0;gap:0}
+ #dock .speed-options{gap:2px}
+ #dock .speed-options button{min-width:43px;min-height:36px;padding:3px 6px;font-size:12px}
+ #dock .radio-zone{font-size:10px;white-space:nowrap}
+ #stormSummary:not(.hide)~#det,#det{top:36px;right:8px;left:8px;width:auto;max-height:calc(100% - 270px);padding:10px 12px}
+ #det #dx{min-width:44px;min-height:44px}
+ #map .leaflet-control-attribution{font-size:8px;max-width:100vw;line-height:1.5}
+ .picker-options{max-height:min(320px,45dvh)}.picker-option{min-height:44px}
+}
+@media (prefers-reduced-motion:reduce){#main,button{transition:none}}
+
+/* A short landscape phone gets a single-row header and a side-by-side player. */
+@media (max-width:950px) and (max-height:500px) and (pointer:coarse) and (min-width:560px){
+ header{grid-template-columns:44px auto minmax(120px,1fr) 100px 44px;gap:8px}
+ #headMain{display:contents}#headMain b{grid-column:2;grid-row:1;font-size:14px}
+ #mobileSources{grid-column:1;grid-row:1}#mobileSettings{grid-column:5;grid-row:1}
+ header>.typhoon-picker{grid-column:3;grid-row:1}#headActions{grid-column:4;grid-row:1}
+ #dock.radio-dock{display:grid;grid-template-columns:180px minmax(0,1fr);column-gap:14px;max-width:none}
+ #dock .tuner-window{grid-column:2;grid-row:1/3}
+ #dock .playback{position:static;grid-column:1;grid-row:1;align-self:end;transform:none;width:100%;padding:0;border:0;box-shadow:none;background:transparent}
+ #dock .playback::after{display:none}
+ #dock .radio-footer{grid-column:1;grid-row:2;align-self:start;justify-content:center;border:0}
+ #dock .radio-zone{display:none}
+ #dock .speed-options button{min-width:42px}
+}
+@media (min-width:560px) and (max-width:620px) and (max-height:500px) and (pointer:coarse){
+ header{grid-template-columns:44px auto minmax(120px,1fr) 88px 44px;gap:6px}#headMain b{font-size:12px}
+}
+@media (max-width:950px) and (max-height:500px) and (pointer:coarse){
+ #stormSummary:not(.hide)~#det,#det{top:8px;bottom:8px;left:auto;right:8px;width:min(360px,calc(100vw - 16px));max-height:none;z-index:6}
+}
+
+/* One CWA-bounded time control for phones; desktop keeps the two tracks. */
+.phone-timeline-heading{display:none}
+@media (max-width:700px), (max-width:950px) and (max-height:500px) and (pointer:coarse){
+ #dock .phone-timeline-heading{display:flex;align-items:center;justify-content:center;gap:8px;min-width:0;min-height:30px}
+ #phoneTime{font:13px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace;color:var(--tx);white-space:nowrap}
+ #phoneSpeed{width:64px;min-height:26px;height:26px;line-height:20px;padding:2px 22px 2px 7px;font-size:12px;border-radius:6px;background-position:right 7px center;background-color:var(--bg)}
+ #dock .band-batch,#dock .band-heading,#dock .radio-footer{display:none!important}
+ #dock .band-position{display:block;min-height:34px;padding:0}
+ #dock .tuning-scale{width:100%;height:32px}
+ #dock.radio-dock{gap:3px;padding-top:4px;padding-bottom:max(8px,env(safe-area-inset-bottom))}
+}
+@media (min-width:560px) and (max-width:950px) and (max-height:500px) and (pointer:coarse){
+ #dock .phone-timeline-heading{grid-column:2;grid-row:1}
+ #dock .tuner-window{grid-column:2;grid-row:2}
+ #dock .playback{grid-column:1;grid-row:1/3;align-self:center}
+}
+
+/* Repeat is shared by the compact and desktop players. */
+#dock .loop-toggle{display:grid;place-items:center;flex:none;width:26px;height:26px;min-height:26px;padding:5px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--mu);touch-action:manipulation}
+#dock .loop-toggle svg{display:block;width:15px;height:15px;pointer-events:none}
+#dock .loop-toggle[aria-pressed=true]{color:var(--position-accent);background:color-mix(in srgb,var(--dock-surface) 88%,var(--position-accent));border-color:color-mix(in srgb,var(--dock-border) 70%,var(--position-accent))}
+#dock .loop-toggle:hover{background:var(--ft)}
+@media (max-width:700px), (max-width:950px) and (max-height:500px) and (pointer:coarse){
+ #map .leaflet-top.leaflet-left .leaflet-control-scale{margin:8px 0 0 8px}
+ #map .leaflet-top.leaflet-right .leaflet-control-attribution{margin:8px 8px 0;max-width:calc(100vw - 16px);border-radius:5px;font-size:8px;line-height:1.5}
+}
+
+/* Fine, time-aligned marks add rhythm without extra labels on phones. */
+.phone-scale-ticks{display:none}
+@media (max-width:700px), (max-width:950px) and (max-height:500px) and (pointer:coarse){
+ #dock .phone-scale-ticks{display:block;position:absolute;inset:0;pointer-events:none}
+ #dock .phone-scale-mark{position:absolute;top:8px;width:1px;height:6px;transform:translateX(-50%);background:color-mix(in srgb,var(--band-accent) 25%,var(--dock-border));border-radius:1px}
+ #dock .phone-scale-mark.major{top:5px;height:12px;background:color-mix(in srgb,var(--band-accent) 50%,var(--dock-border))}
+ #dock .phone-scale-mark.endpoint{top:6px;height:10px;background:var(--band-accent);opacity:.55}
+}
+
+/* Desktop playback options share the same compact text-button treatment. */
+#dock .timeline-actions{flex-wrap:wrap}
+#dock .timeline-toggle{min-height:25px;padding:2px 7px;border:1px solid var(--bd);border-radius:4px;background:transparent;font-size:11px;line-height:1.55;color:var(--mu);white-space:nowrap}
+#dock .timeline-toggle:hover{background:var(--ft);color:var(--tx)}
+#dock .timeline-toggle[aria-pressed=true]{color:var(--position-accent);background:color-mix(in srgb,var(--dock-surface) 88%,var(--position-accent));border-color:var(--position-accent)}
+
+/* Export uses a native modal so background map controls stay fixed. */
+.mobile-export-action{display:none}
+#mediaExport{width:min(480px,calc(100vw - 28px));max-height:calc(100dvh - 32px);overflow:auto;padding:20px;border:1px solid var(--bd);border-radius:12px;background:var(--bg);color:var(--tx);box-shadow:0 12px 60px #10253030}
+#mediaExport::backdrop{background:#10253066}
+#mediaExport .export-heading{display:flex;align-items:center;justify-content:space-between;gap:12px}
+#mediaExport h2{margin:0;font-size:18px;font-weight:600}
+#mediaExport .export-hint{font-size:13px;color:var(--mu);line-height:1.7}
+#mediaExport .export-format{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:18px 0}
+#mediaExport [role=status]{font-size:13px;min-height:24px;overflow-wrap:anywhere}
+#mediaExport progress{width:100%;height:6px;accent-color:#416fa5}
+#mediaExport .export-actions{display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-top:16px}
+#mediaExport [data-generate],#mediaExport [data-download]{border:1px solid var(--bd);border-radius:7px;padding:8px 12px;color:var(--tx);font:inherit;text-decoration:none}
+#mediaExport [data-generate]{background:var(--ft)}
+#mediaExport img{display:block;width:100%;height:auto;margin-top:18px;border:1px solid var(--bd);border-radius:6px}
+#mediaExport [hidden]{display:none!important}
+@media (max-width:700px), (max-width:950px) and (max-height:500px) and (pointer:coarse){
+ #exportMedia{display:none!important}
+ .mobile-export-action{display:block;margin:0 0 18px;padding-bottom:16px;border-bottom:1px solid var(--bd)}
+ .mobile-export-action button{width:100%;min-height:44px;border:1px solid var(--bd);border-radius:8px;background:var(--ft)}
+ #mediaExport{padding:16px}#mediaExport button,#mediaExport [data-download]{min-height:44px}
+}
+
+/* A live map and the shared canvas footer form the export composition editor. */
+#mediaExport{width:min(1080px,calc(100vw - 28px));max-height:calc(100dvh - 32px)}
+#mediaExport .export-workspace{display:grid;grid-template-columns:230px minmax(0,1fr);gap:24px;align-items:start}
+#mediaExport .export-controls{min-width:0}
+#mediaExport .export-format{display:grid;gap:6px;margin:12px 0;font-size:13px}
+#mediaExport .export-format select{width:100%;min-width:0;font-size:13px}
+#mediaExport .export-height{display:grid;grid-template-columns:1fr auto;gap:8px;font-size:13px;margin:20px 0 12px}
+#mediaExport .export-height input{grid-column:1/-1;width:100%;margin:0;accent-color:#416fa5}
+#mediaExport .export-height output{font-variant-numeric:tabular-nums;color:var(--mu)}
+#mediaExport .export-map-actions{display:flex;gap:6px}
+#mediaExport .export-map-actions button{min-height:34px;padding:5px 9px;border:1px solid var(--bd);border-radius:6px;font-size:13px}
+#mediaExport .export-map-actions [data-map-zoom]{min-width:36px}
+#mediaExport .export-preview{min-width:0}
+#mediaExport .export-preview-heading{display:flex;justify-content:space-between;align-items:center;gap:10px;margin:8px 0 12px;font-size:12px}
+#mediaExport [data-dimensions]{color:var(--mu);font-variant-numeric:tabular-nums}
+#mediaExport .export-preview-sheet{overflow:hidden;border:1px solid var(--bd);border-radius:8px;background:var(--bg)}
+#exportMapHost{position:relative;width:100%;height:400px;background:var(--ft);isolation:isolate}
+#exportMapHost #map{inset:0}
+#exportMapHost .leaflet-control-attribution{display:none}
+#exportMapHost .leaflet-top.leaflet-left .leaflet-control-scale{margin:0 0 7px 12px}
+#exportFooter{display:block;width:100%;height:116px}
+#mediaExport [data-result]{margin-top:20px;border-top:1px solid var(--bd);padding-top:12px;font-size:13px}
+#mediaExport [data-result] summary{cursor:pointer}
+@media(max-width:760px){
+ #mediaExport .export-workspace{display:flex;flex-direction:column;gap:12px}
+ #mediaExport .export-controls,#mediaExport .export-preview{width:100%}
+ #mediaExport .export-controls{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px}
+ #mediaExport .export-format{margin:0}
+ #mediaExport .export-controls>p,#mediaExport .export-height,#mediaExport .export-map-actions,#mediaExport progress,#mediaExport .export-actions{grid-column:1/-1}
+ #mediaExport .export-height{margin:4px 0}
+ #mediaExport .export-controls>p{margin:0;font-size:12px}
+ #mediaExport .export-map-actions{justify-content:flex-end}
+ #mediaExport .export-actions{margin-top:0}
+ #mediaExport .export-preview-heading{margin-top:0}
+}

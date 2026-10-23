@@ -75,7 +75,7 @@ CWA_API_KEY=你的CWA授權碼
 ## 執行與快取
 
 ```sh
-python3 server.py --bind 0.0.0.0 --port 8000
+python3 server.py --bind 0.0.0.0 --port 18765
 ```
 
 需要 Python 3.10+ 及 `curl`。標準函式庫實作，沒有額外 pip 套件。伺服器同時提供地圖靜態檔案與 `/api/typhoons`；原本的 `python3 -m http.server` 只能供應靜態檔案，不能提供此 API。

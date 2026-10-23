@@ -22,6 +22,7 @@ VISIT_REFRESH_SECONDS = 5 * 60
 SCHEDULE_TIMEZONE = timezone(timedelta(hours=8))
 PUBLIC_FILES = frozenset({
     '/index.html', '/app.js', '/bootstrap.mjs', '/map.js', '/map.css', '/basemap-style.json',
+    '/media-export.mjs', '/vendor/gifenc/gifenc.mjs', '/vendor/gifenc/LICENSE.md',
     '/vendor/leaflet/leaflet.js', '/vendor/leaflet/leaflet.css', '/vendor/leaflet/LICENSE',
     '/vendor/maplibre/maplibre-gl.mjs', '/vendor/maplibre/maplibre-gl-shared.mjs',
     '/vendor/maplibre/maplibre-gl-worker.mjs', '/vendor/maplibre/maplibre-gl.css',
@@ -392,7 +393,7 @@ def scheduled_collection(store, stop):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--bind', default='0.0.0.0')
-    parser.add_argument('--port', default=8000, type=int)
+    parser.add_argument('--port', default=18765, type=int)
     parser.add_argument('--cache', type=Path, default=ROOT / '.cache/weather.sqlite3')
     args = parser.parse_args()
     store = WeatherStore(args.cache)
