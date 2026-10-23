@@ -1,15 +1,55 @@
 /* Leaflet 1.9.4 + OpenStreetMap. Weather data is supplied by the page. */
-// Great-circle destination, used for the official four quadrant radii.
+// Display-only easing between quadrant radii. Each quadrant keeps its official
+// radius through the middle of its arc; transitions stay between adjacent values.
 function windQuadrantPolygon(point, radii) {
-  const quadrants=['NE','SE','SW','NW'];
-  if(!radii||!quadrants.every(key=>Number.isFinite(radii[key])&&radii[key]>0))return null;
-  const rad=Math.PI/180,lat=point.lat*rad,lon=point.lon*rad,outline=[];
-  quadrants.forEach((key,index)=>{const distance=radii[key]/6371;
-    for(let angle=index*90;angle<=index*90+90;angle+=5){const bearing=angle*rad,
-      y=Math.asin(Math.sin(lat)*Math.cos(distance)+Math.cos(lat)*Math.sin(distance)*Math.cos(bearing)),
-      x=lon+Math.atan2(Math.sin(bearing)*Math.sin(distance)*Math.cos(lat),Math.cos(distance)-Math.sin(lat)*Math.sin(y));
-      outline.push([y/rad,x/rad]);}
-  });return outline;
+  const quadrants = ['NE', 'SE', 'SW', 'NW'];
+  if (!radii || !quadrants.every(key => Number.isFinite(radii[key]) && radii[key] > 0)) return null;
+  const rad = Math.PI / 180, lat = point.lat * rad, lon = point.lon * rad, outline = [];
+  const transition = 14;
+  for (let angle = 0; angle < 360; angle += 2) {
+    const quadrant = Math.floor(angle / 90), offset = angle % 90;
+    let radius = radii[quadrants[quadrant]];
+    if (offset < transition || offset > 90 - transition) {
+      const boundary = offset < transition ? quadrant : (quadrant + 1) % 4;
+      const delta = offset < transition ? offset : offset - 90;
+      const t = (delta + transition) / (2 * transition);
+      const blend = (1 - Math.cos(Math.PI * t)) / 2;
+      const before = radii[quadrants[(boundary + 3) % 4]], after = radii[quadrants[boundary]];
+      radius = before + (after - before) * blend;
+    }
+    const distance = radius / 6371, bearing = angle * rad;
+    const y = Math.asin(Math.sin(lat) * Math.cos(distance) + Math.cos(lat) * Math.sin(distance) * Math.cos(bearing));
+    const x = lon + Math.atan2(Math.sin(bearing) * Math.sin(distance) * Math.cos(lat), Math.cos(distance) - Math.sin(lat) * Math.sin(y));
+    outline.push([y / rad, x / rad]);
+  }
+  return outline;
+}
+
+
+// SVG curves avoid the pixel-rounded polygon corners at close zoom levels.
+// Keep the original geographic vertices for bounds and Leaflet layer metadata.
+function smoothWindArea(outline, options) {
+  const shape = L.polygon(outline, options), updatePath = shape._updatePath;
+  shape._updatePath = function () {
+    // The bundled Leaflet SVG renderer supports path strings; retain its
+    // normal polygon rendering if a caller explicitly uses the Canvas renderer.
+    if (typeof this._renderer._setPath !== 'function') return updatePath.call(this);
+    const origin = this._map.getPixelOrigin();
+    const points = this.getLatLngs()[0].map(point => this._map.project(point).subtract(origin));
+    const size = points.length;
+    if (size < 3) return updatePath.call(this);
+    const coordinate = point => `${point.x.toFixed(3)},${point.y.toFixed(3)}`;
+    let path = `M${coordinate(points[0])}`;
+    for (let i = 0; i < size; i++) {
+      const previous = points[(i + size - 1) % size], current = points[i];
+      const next = points[(i + 1) % size], after = points[(i + 2) % size];
+      const first = L.point(current.x + (next.x - previous.x) / 6, current.y + (next.y - previous.y) / 6);
+      const second = L.point(next.x - (after.x - current.x) / 6, next.y - (after.y - current.y) / 6);
+      path += `C${coordinate(first)} ${coordinate(second)} ${coordinate(next)}`;
+    }
+    this._renderer._setPath(this, path + 'Z');
+  };
+  return shape;
 }
 
 class TyphoonMap {
@@ -137,20 +177,21 @@ class TyphoonMap {
     if (changed) this.reset();
     this.group.clearLayers();
     const { history, actual, layers, opacity, highlight, hour, series, selected, weather } = snapshot;
+    const dark = this.style === 'dark';
     const add = layer => layer.addTo(this.group);
     const line = (coords, options) => add(L.polyline(coords, {
       interactive: false, lineCap: 'round', lineJoin: 'round', ...options
     }));
     if (layers.grid) {
       for (let lon = 100; lon <= 160; lon += 5)
-        line([[0, lon], [50, lon]], { pane: 'grid', color: '#63808a', weight: 0.7, opacity: 0.16, dashArray: '3 7' });
+        line([[0, lon], [50, lon]], { pane: 'grid', color: '#63808a', weight: 0.6, opacity: dark ? 0.16 : 0.1, dashArray: '2 8' });
       for (let lat = 0; lat <= 50; lat += 5)
-        line([[lat, 100], [lat, 160]], { pane: 'grid', color: '#63808a', weight: 0.7, opacity: 0.16, dashArray: '3 7' });
+        line([[lat, 100], [lat, 160]], { pane: 'grid', color: '#63808a', weight: 0.6, opacity: dark ? 0.16 : 0.1, dashArray: '2 8' });
     }
     if (layers.hist) {
-      line(history.map(p => [p[1], p[0]]), { pane: 'history', color: '#647780', weight: 2, opacity: 0.65 * opacity });
+      line(history.map(p => [p[1], p[0]]), { pane: 'history', color: dark ? '#9aaab4' : '#738791', weight: 1.35, opacity: 0.55 * opacity });
       history.forEach((p,index) => {
-        add(L.circleMarker([p[1],p[0]],{pane:'history',radius:2.5,color:'#fff',weight:1,fillColor:'#647780',fillOpacity:opacity,opacity,interactive:false}));
+        add(L.circleMarker([p[1],p[0]],{pane:'history',radius:1.9,color:dark?'#27333c':'#fff',weight:.8,fillColor:dark?'#a5b3bb':'#738791',fillOpacity:.75*opacity,opacity:.8*opacity,interactive:false}));
         const record=snapshot.historyRecords?.[index];
         if(record){const target=add(L.circleMarker([p[1],p[0]],{pane:'history',radius:12,stroke:false,fillOpacity:0,interactive:true,className:'history-node node-hit'}));
           target.bindTooltip(this.nodeTooltip(record,snapshot.historyAgency,snapshot),{direction:'top',offset:[0,-10],className:'forecast-tooltip',sticky:true});}
@@ -160,17 +201,17 @@ class TyphoonMap {
     if(weather?.point){
       const p=weather.point;
       for(const [layer,radiusField,quadrantField,color,level] of [
-        ['wind15','windRadius15ms','windRadii15ms','#b6842c','15'],
-        ['wind25','windRadius25ms','windRadii25ms','#c45454','25']]){
+        ['wind15','windRadius15ms','windRadii15ms',dark?'#d3b37d':'#b39158','15'],
+        ['wind25','windRadius25ms','windRadii25ms',dark?'#d69b98':'#b97573','25']]){
         if(!layers[layer])continue;
         const radius=p[radiusField],outline=windQuadrantPolygon(p,p[quadrantField]);
         if(!outline&&!(Number.isFinite(radius)&&radius>0))continue;
-        const options={pane:'areas',color,weight:1.5,opacity:.8*opacity,
-          fillColor:color,fillOpacity:(level==='15'?.07:.1)*opacity,
-          interactive:false,className:'wind-area wind-'+level};
-        const shape=outline?L.polygon(outline,options):L.circle([p.lat,p.lon],{...options,radius:radius*1000});
+        const options={pane:'areas',color,weight:1.05,opacity:(dark?.8:.7)*opacity,
+          fillColor:color,fillOpacity:(level==='15'?.045:.065)*opacity,
+          lineCap:'round',lineJoin:'round',smoothFactor:.25,interactive:false,className:'wind-area wind-'+level};
+        const shape=outline?smoothWindArea(outline,options):L.circle([p.lat,p.lon],{...options,radius:radius*1000});
         add(shape);Object.assign(shape.getElement().dataset,{agency:weather.agency.k,
-          time:p.time,radius:radius??'',geometry:outline?'quadrants':'circle'});
+          time:p.time,radius:radius??'',geometry:outline?'quadrants':'circle',rendering:outline?'smoothed':'circle'});
       }
     }
     series.forEach(({ agency, batch, previous, points }) => {
@@ -178,11 +219,11 @@ class TyphoonMap {
       const alpha = dim * opacity;
       const latlngs = ps => ps.map(p => [p.lat, p.lon]);
       if (layers.trk && points.length > 1) {
-        // White casing keeps overlapping tracks legible against city labels and coastlines.
-        line(latlngs(points), { pane: 'tracks', color: '#fff', weight: 5, opacity: alpha * 0.7 });
+        // A narrow casing separates overlapping providers without heavy outlines.
+        line(latlngs(points), { pane: 'tracks', color: dark ? '#17242f' : '#fff', weight: 3.2, opacity: alpha * 0.55 });
         line(latlngs(points), {
-          pane: 'tracks', color: agency.c, weight: highlight === agency.k ? 3.5 : 2.5,
-          opacity: alpha * 0.85, dashArray: previous ? '4 5' : '5 6'
+          pane: 'tracks', color: agency.c, weight: highlight === agency.k ? 2.25 : 1.65,
+          opacity: alpha * (dark ? .9 : .82), dashArray: previous ? '3 6' : '5 5'
         });
       }
       points.forEach(p => {
@@ -190,21 +231,21 @@ class TyphoonMap {
         if (layers.cone && !previous && agency.k===weather?.agency.k && p.ld>0 && p.cone>0 &&
             (!selected || (selected.a===agency.k && selected.h===p.h && selected.b===batch))) {
           const area=add(L.circle([p.lat,p.lon],{
-            pane:'areas',radius:p.cone*1000,color:'#6183aa',weight:1,
-            opacity:alpha*(selected?.a===agency.k?.75:.4),dashArray:'3 5',
-            fillColor:'#6183aa',fillOpacity:alpha*(selected?.a===agency.k?.07:.025),
+            pane:'areas',radius:p.cone*1000,color:dark?'#9db5cc':'#7c99b4',weight:.85,
+            opacity:alpha*(selected?.a===agency.k?.65:.35),dashArray:'2 6',
+            fillColor:'#7c99b4',fillOpacity:alpha*(selected?.a===agency.k?.045:.018),
             interactive:false,className:'probability-area'
           }));Object.assign(area.getElement().dataset,{agency:agency.k,lead:p.ld,radius:p.cone});
         }
         if (layers.r30 && current && p.r30) add(L.circle([p.lat, p.lon], {
           pane: 'areas', radius: p.r30 * 1000, color: agency.c,
-          weight: 1.2, opacity: alpha, dashArray: '4 5',
-          fillColor: agency.c, fillOpacity: alpha * 0.035, interactive: false
+          weight: 1, opacity: alpha * .65, dashArray: '3 6',
+          fillColor: agency.c, fillOpacity: alpha * 0.025, interactive: false
         }));
         const pointAlpha = alpha * (p.h <= hour ? 1 : 0.8);
         if (layers.pt) {
-          const radius=(layers.int?2.3+(p.w??20)/18:4)*(current?1.4:1);
-          add(L.circleMarker([p.lat,p.lon],{pane:'points',radius,color:'#fff',weight:current?2:1.3,fillColor:agency.c,fillOpacity:pointAlpha,opacity:pointAlpha,interactive:false,className:'forecast-dot'}));
+          const radius=(layers.int?2.2+Math.max(0,Math.min(80,p.w??20))/35:3.2)*(current?1.2:1);
+          add(L.circleMarker([p.lat,p.lon],{pane:'points',radius,color:dark?'#17242f':'#fff',weight:current?1.3:1,fillColor:agency.c,fillOpacity:pointAlpha,opacity:pointAlpha,interactive:false,className:'forecast-dot'}));
           const marker=add(L.circleMarker([p.lat,p.lon],{pane:'points',radius:Math.max(12,radius+8),stroke:false,fillOpacity:0,interactive:true,className:'pt node-hit'}));
           Object.assign(marker.getElement().dataset,{a:agency.k,h:p.h,b:batch});
           marker.bindTooltip(this.nodeTooltip(p,agency.k,snapshot),{direction:'top',offset:[0,-10],className:'forecast-tooltip',sticky:true});
@@ -217,13 +258,13 @@ class TyphoonMap {
           }));
         }
         if (selected?.a === agency.k && selected.h === p.h && selected.b === batch)
-          add(L.circleMarker([p.lat, p.lon], { pane: 'center', radius: 11,
-            color: agency.c, weight: 2, fillOpacity: 0, interactive: false }));
+          add(L.circleMarker([p.lat, p.lon], { pane: 'center', radius: 8,
+            color: agency.c, weight: 1.2, opacity: .75, fillOpacity: 0, interactive: false }));
       });
     });
     if(actual)add(L.marker([actual[1], actual[0]], {
       pane: 'center', interactive: false, opacity,
-      icon: L.divIcon({ className: 'storm-center', html: '<span></span>', iconSize: [22, 22], iconAnchor: [11, 11] })
+      icon: L.divIcon({ className: 'storm-center', html: '<span></span>', iconSize: [12, 12], iconAnchor: [6, 6] })
     }));
   }
 }
