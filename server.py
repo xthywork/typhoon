@@ -15,6 +15,7 @@ from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlsplit
 
 from official_data import ADAPTERS, SOURCES, now_ms
+from forecast_accuracy import build_accuracy
 
 ROOT = Path(__file__).resolve().parent
 FETCH_MINUTES = (5, 20, 25, 50)
@@ -186,6 +187,7 @@ class WeatherStore:
         if self.db.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='archive_storms'").fetchone():
             for (payload,) in self.db.execute('SELECT payload FROM archive_storms'):
                 storm = json.loads(payload)
+                storm['active'] = False
                 storms[storm['id']] = storm
         for agency, (name, average, url) in SOURCES.items():
             state = self.db.execute('SELECT checked,succeeded,active,error FROM source_state WHERE agency=?',
@@ -200,7 +202,10 @@ class WeatherStore:
                 message=error or ('擷取成功' if active else '目前沒有活動中的熱帶氣旋'))
             if agency == 'KMA':
                 statuses[agency]['status'] = 'unconfigured'
-            for ident in active:
+            # Forecasts remain selectable after upstream active lists drop them.
+            stored = {row[0] for row in self.db.execute(
+                'SELECT DISTINCT storm FROM bulletins WHERE agency=?', (agency,))}
+            for ident in sorted(stored | set(active)):
                 rows = self.db.execute('SELECT payload FROM bulletins WHERE storm=? AND agency=? ORDER BY issued DESC',
                     (ident, agency)).fetchall()
                 if not rows:
@@ -208,7 +213,8 @@ class WeatherStore:
                 records = [json.loads(row[0]) for row in rows]
                 newest = records[0]
                 t = storms.setdefault(ident, dict(id=ident, nameEn=newest['nameEn'], nameZh='', sources={}))
-                t['active'] = True
+                source_active = ident in active
+                t['active'] = bool(t.get('active', False) or source_active)
                 if newest['nameZh'] and (agency == 'CWA' or not t['nameZh']):
                     t['nameZh'] = newest['nameZh']
                 # Combine only observations from this same provider and cyclone.
@@ -219,7 +225,8 @@ class WeatherStore:
                 combined_history.update(history)
                 batches = {b['issued']: b for b in archived.get('batches', [])}
                 batches.update({r['issued']: dict(issued=r['issued'], base=r['base'], points=r['points']) for r in records})
-                t['sources'][agency] = dict(archived, url=newest['url'], transport=newest.get('transport', 'official-public-product'),
+                t['sources'][agency] = dict(archived, active=source_active, storedHistory=not source_active,
+                    url=newest['url'], transport=newest.get('transport', 'official-public-product'),
                     number=newest.get('number', archived.get('number', '')),
                     batches=sorted(batches.values(), key=lambda b: b['issued'], reverse=True),
                     history=sorted(combined_history.values(), key=lambda p: p['time']))
@@ -232,6 +239,7 @@ class WeatherStore:
             t['historyAgency'], t['history'] = key, history
             t['batchTimes'] = sorted({b['issued'] for src in t['sources'].values() for b in src['batches']}, reverse=True)
         snapshot = dict(schemaVersion=1, mock=False, synced=checked, sources=statuses,
+            accuracy=build_accuracy(self.db, storms, checked, SOURCES),
             typhoons=sorted(storms.values(), key=lambda t: (not t.get('active', False), -t['history'][-1]['time'], t['id'])))
         # Collection timestamps change even if the upstream content is identical.
         content = dict(snapshot, sources={key: {k: v for k, v in source.items()

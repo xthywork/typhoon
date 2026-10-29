@@ -55,7 +55,7 @@ function applySynchronizedTime(when){if(!TY()||!Number.isFinite(when))return;
  }
  S.syncTime=when;S.actual=analysisHistory().filter(p=>p.time<=when).at(-1)?.time??null;S.batch=TY().batchTimes.findIndex(time=>time<=when)}
 function trackCursor(key){return synchronizedTracks()&&Number.isFinite(S.syncTime)?S.syncTime:(key==='actual'?S.actual:selectedBulletinTime())}
-function updateAgencies(){AG.forEach(a=>{const source=D.sources[a.k],batch=agencyBatch(a),archive=TY()?.sources[a.k];a.max=batch?Math.max(1,...batch.points.map(p=>(p.time-batch.base)/36e5)):0;a.st=Object.hasOwn(ST,source.status)?source.status:'error';a.note=source.message;if(archive?.historical){if(!TY()?.active)a.st='ok';a.note=(TY()?.active?source.message+'；':'')+'已匯入官方歷史資料；'+archive.history.length+' 筆分析位置'+(archive.batches.length?'，'+archive.batches.length+' 組預報批次':'，無歷史預報批次')}if(!archive?.historical&&!batch&&['ok','late'].includes(a.st)){a.st='none';a.note=TY()?.sources[a.k]?'所選時間之前沒有已儲存的預報批次':'此颱風沒有該來源資料'}})}
+function updateAgencies(){AG.forEach(a=>{const source=D.sources[a.k],batch=agencyBatch(a),archive=TY()?.sources[a.k];a.max=batch?Math.max(1,...batch.points.map(p=>(p.time-batch.base)/36e5)):0;a.st=Object.hasOwn(ST,source.status)?source.status:'error';a.note=source.message;if(archive?.storedHistory){a.st=batch?'ok':'none';a.note=`已儲存歷史資料，非即時預報；${archive.history.length} 筆分析位置、${archive.batches.length} 組發布批次${batch?'':'；所選時間之前沒有預報批次'}`}else if(archive?.historical){if(!TY()?.active)a.st='ok';a.note=(TY()?.active?source.message+'；':'')+'已匯入官方歷史資料；'+archive.history.length+' 筆分析位置'+(archive.batches.length?'，'+archive.batches.length+' 組預報批次':'，無歷史預報批次')}if(!archive?.historical&&!archive?.storedHistory&&!batch&&['ok','late'].includes(a.st)){a.st='none';a.note=TY()?.sources[a.k]?'所選時間之前沒有已儲存的預報批次':'此颱風沒有該來源資料'}})}
 const cls=w=>w<17.2?'熱帶性低氣壓':w<32.7?'輕度颱風':w<51?'中度颱風':'強烈颱風';
 const dist=(a,b)=>{const R=6371,r=Math.PI/180,x=(b.lat-a.lat)*r,y=(b.lon-a.lon)*r,h=Math.sin(x/2)**2+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(y/2)**2;return 2*R*Math.asin(Math.sqrt(h))};
 const D8=['北','東北','東','東南','南','西南','西','西北'];
@@ -65,7 +65,7 @@ const mapView=new TyphoonMap('map',(agency,hour,batch)=>{S.hour=hour;showDet(age
 const summaryObserver=new ResizeObserver(()=>{const box=$('#stormSummary');$('#mapc').style.setProperty('--summary-bottom',`${box.offsetTop+box.offsetHeight+8}px`)});
 summaryObserver.observe($('#stormSummary'));
 function weatherContext(){return {agency:AG.find(a=>a.k===analysisAgency()),point:Number.isFinite(S.actual)?analysisHistory().filter(p=>p.time<=S.actual).at(-1)||null:null,forecast:false}}
-function updateWeatherSummary(context){if($('#mockT')&&TY())$('#mockT').textContent='官方資料｜分析來源：'+analysisAgency();const box=$('#stormSummary');box.classList.toggle('hide',!context);if(!context)return;const {agency,point:p}=context;if(!p){box.innerHTML=`<div class="storm-summary-title">${agency.k}</div><div class="mu">此時段未提供分析資料</div>`;return}const n=(value,unit='')=>value==null?'未提供':(Number.isInteger(value)?value:+value.toFixed(1))+unit,fields=[['最大風速',n(p.w,' m/s')],['最大陣風',n(p.gust,' m/s')],['中心氣壓',n(p.p,' hPa')],['移動速度',n(p.movingSpeed,' km/h')]];box.innerHTML=`<div class="storm-summary-title"><b>${agency.k} 分析</b><span>${ft(p.time).slice(5)}</span></div><dl>${fields.map(([label,value])=>`<div><dt>${label}</dt><dd>${value}</dd></div>`).join('')}</dl><div class="wind-legend"><span class="wind15-key">七級風 ${n(p.windRadius15ms,' km')}</span><span class="wind25-key">十級風 ${n(p.windRadius25ms,' km')}</span></div><div class="summary-note">風速為 ${agency.avg} 平均；風圈輪廓為平滑示意，半徑依官方資料</div>${S.ly.cone?'<div class="summary-note cone-key">虛線圈：官方中心位置機率範圍，非暴風圈</div>':''}`}
+function updateWeatherSummary(context){if($('#mockT')&&TY())$('#mockT').textContent=(TY()?.active===false?'已儲存歷史｜分析來源：':'官方資料｜分析來源：')+analysisAgency();const box=$('#stormSummary');box.classList.toggle('hide',!context);if(!context)return;const {agency,point:p}=context;if(!p){box.innerHTML=`<div class="storm-summary-title">${agency.k}</div><div class="mu">此時段未提供分析資料</div>`;return}const n=(value,unit='')=>value==null?'未提供':(Number.isInteger(value)?value:+value.toFixed(1))+unit,fields=[['最大風速',n(p.w,' m/s')],['最大陣風',n(p.gust,' m/s')],['中心氣壓',n(p.p,' hPa')],['移動速度',n(p.movingSpeed,' km/h')]];box.innerHTML=`<div class="storm-summary-title"><b>${agency.k} 分析</b><span>${ft(p.time).slice(5)}</span></div><dl>${fields.map(([label,value])=>`<div><dt>${label}</dt><dd>${value}</dd></div>`).join('')}</dl><div class="wind-legend"><span class="wind15-key">七級風 ${n(p.windRadius15ms,' km')}</span><span class="wind25-key">十級風 ${n(p.windRadius25ms,' km')}</span></div><div class="summary-note">風速為 ${agency.avg} 平均；風圈輪廓為平滑示意，半徑依官方資料</div>${S.ly.cone?'<div class="summary-note cone-key">虛線圈：官方中心位置機率範圍，非暴風圈</div>':''}`}
 function drawMap(){if(!TY())return;const context=weatherContext();updateWeatherSummary(context);mapView.render({
  typhoon:TY(),history:hist(),historyRecords:analysisHistory(),historyAgency:analysisAgency(),formatTime:when=>ft(when)+' '+TZ(),actual:context.point?[context.point.lon,context.point.lat]:null,hour:S.hour,
  layers:S.ly,opacity:S.op,highlight:S.hl,selected:S.sel,weather:context,
@@ -75,11 +75,18 @@ function drawMap(){if(!TY())return;const context=weatherContext();updateWeatherS
 /* ===== 面板 ===== */
 const TABS=[['lay','圖層設定','R'],['exp','匯出','R']];
 function updTabs(){$('#tabs').innerHTML=TABS.map(t=>`<button data-t="${t[0]}" class="${S.tab.R===t[0]?'on':''}">${t[1]}</button>`).join('');TABS.forEach(t=>$('#p_'+t[0]).classList.toggle('hide',S.tab.R!==t[0]))}
+const accuracyData=(agency,scope)=>D?.accuracy?.byStorm?.[TY()?.id]?.[scope]?.[agency];
+function accuracySummary(agency){return '<div class="accuracy-summary" aria-label="路徑命中率">'+[['history','歷史'],['current','本颱風']].map(([scope,label])=>{
+ const score=accuracyData(agency,scope),rate=score?.rate;
+ const value=Number.isFinite(rate)?(Number.isInteger(rate)?rate:rate.toFixed(1))+'%':scope==='history'?'累積中':'待驗證';
+ const note=Number.isFinite(rate)&&(score.provisional||score.sampleCount<10)?'<span class="accuracy-estimate" aria-hidden="true">*</span>':'';
+ return `<button type="button" class="accuracy-value" data-accuracy="${agency}" data-scope="${scope}" aria-label="${label}命中率 ${value}，查看計算細節"><span>${label}</span><strong>${value}</strong>${note}</button>`;
+}).join('')+'</div>'}
 function updAgs(){
  const active=document.activeElement,list=$('#ags');
  const focusedKey=list.contains(active)?active.closest('.ag')?.querySelector('input')?.dataset.k:null;
- const focusedControl=active.matches('input')?'input':active.matches('button')?'button':active.matches('.status-light')?'.status-light':null;
- const available=AG,allSelected=available.every(a=>S.on.has(a.k));$('#toggleAll').disabled=false;$('#toggleAll').textContent=allSelected?'取消全選':'全選';$('#ags').innerHTML=AG.map(a=>`<div class="ag"><input type="checkbox" data-k="${a.k}" ${S.on.has(a.k)?'checked':''} aria-label="${FN[a.k]}"><i style="background:${a.c}"></i><button class="nm ${S.hl===a.k?'on':''}" data-k="${a.k}" title="聚焦此提供商，再點一次恢復" aria-pressed="${S.hl===a.k}">${FN[a.k]} <span>${a.k}</span></button><span class="status-light ${a.st}" role="img" tabindex="0" aria-label="${escapeHtml(a.note||ST[a.st])}" title="${escapeHtml(a.note||ST[a.st])}"></span></div>`).join('');fitSourceWidth();
+ const focusedControl=active.matches('input')?'input':active.matches('[data-accuracy]')?`[data-scope="${active.dataset.scope}"]`:active.matches('button')?'button':active.matches('.status-light')?'.status-light':null;
+ const available=AG,allSelected=available.every(a=>S.on.has(a.k));$('#toggleAll').disabled=false;$('#toggleAll').textContent=allSelected?'取消全選':'全選';$('#ags').innerHTML=AG.map(a=>`<div class="ag"><input type="checkbox" data-k="${a.k}" ${S.on.has(a.k)?'checked':''} aria-label="${FN[a.k]}"><i style="background:${a.c}"></i><button class="nm ${S.hl===a.k?'on':''}" data-k="${a.k}" title="聚焦此提供商，再點一次恢復" aria-pressed="${S.hl===a.k}">${FN[a.k]} <span>${a.k}</span></button><span class="status-light ${a.st}" role="img" tabindex="0" aria-label="${escapeHtml(a.note||ST[a.st])}" title="${escapeHtml(a.note||ST[a.st])}"></span>${accuracySummary(a.k)}</div>`).join('');fitSourceWidth();
  if(focusedKey&&focusedControl)list.querySelector(`input[data-k="${focusedKey}"]`)?.closest('.ag')?.querySelector(focusedControl)?.focus({preventScroll:true});
 }
 
@@ -110,7 +117,7 @@ function clampForecastCursors(){
  S.actual=positions.length?nearest(positions,S.actual??timeDomain()[1]):null;
  S.batch=batches.length?TY().batchTimes.indexOf(nearest(batches,selectedBulletinTime()??timeDomain()[1])):-1;
 }
-function all(){forcePhonePlayback();for(const button of document.querySelectorAll('[data-media-export]'))button.disabled=!TY()||mediaExportLoading;if(!D){updAgs();return;}if(TY()&&synchronizedTracks())applySynchronizedTime(S.syncTime??initialClockTime());clampForecastCursors();updateAgencies();updAgs();if(!TY())return;S.hor=availableHorizon();drawMap();updTl();if(S.sel)showDet(S.sel.a,S.sel.h,S.sel.b,1)}
+function all(){forcePhonePlayback();for(const button of document.querySelectorAll('[data-media-export]'))button.disabled=!TY()||mediaExportLoading;if(!D){updAgs();return;}if(TY()&&synchronizedTracks())applySynchronizedTime(S.syncTime??initialClockTime());clampForecastCursors();if(!updateFailed)showSyncTime();updateAgencies();updAgs();if(!TY())return;S.hor=availableHorizon();drawMap();updTl();if(S.sel)showDet(S.sel.a,S.sel.h,S.sel.b,1)}
 function showDet(k,h,b,keep){const a=AG.find(x=>x.k===k),p=fc(TY(),a,b,h);if(!p){$('#det').classList.add('hide');return}S.sel={a:k,h,b};if(!keep)drawMap();const points=pts(a,b),index=points.findIndex(x=>x.h===h),prev=points[index-1],movement=prev?`向${mv(prev,p)}，${(dist(prev,p)/((p.time-prev.time)/36e5)).toFixed(0)} km/h`:'—',n=(v,suffix='')=>v==null?'未提供':v+suffix;
  $('#det').innerHTML=`<div class="row"><b class="sp">${escapeHtml(TY().name)}</b><button id="dx" aria-label="關閉">✕</button></div><table>`+[['預報機構',FN[k]],['發布／產品更新',ft(issMs(a,b))+' '+TZ()],['有效時間',ft(p.time)+' '+TZ()],['預報時效',p.ld+'h'],['中心位置',p.lat.toFixed(2)+'°N / '+p.lon.toFixed(2)+'°E'],['最大持續風速',n(p.w==null?null:+p.w.toFixed(1),' m/s')+'（'+a.avg+'平均）'],['最大陣風',n(p.gust,' m/s')],['中心最低氣壓',n(p.p,' hPa')],['移動',p.movingDirection?`${p.movingDirection} ${n(p.movingSpeed,' km/h')}（官方）`:movement],['30 kt 風圈',n(p.r30,' km')],['七級風半徑（15 m/s）',n(p.windRadius15ms,' km')],['十級風半徑（25 m/s）',n(p.windRadius25ms,' km')],['七級風四象限',p.windRadii15ms?['NE','SE','SW','NW'].map((dir,i)=>['東北','東南','西南','西北'][i]+' '+n(p.windRadii15ms[dir],' km')).join('、'):'未提供'],['強度變化',p.stateTransfer||'未提供'],['官方中心位置機率半徑',n(p.cone,' km')+(p.coneProbability?'（'+p.coneProbability+'%）':'')],['位置分析來源',FN[analysisAgency()]+' '+analysisAgency()],['資料來源',TY().sources[k].url]].map(([label,value])=>`<tr><td>${escapeHtml(label)}</td><td>${escapeHtml(value)}</td></tr>`).join('')+'</table>';$('#det').classList.remove('hide');$('#dx').onclick=()=>{S.sel=null;$('#det').classList.add('hide');drawMap()}}
 
@@ -179,13 +186,13 @@ $('#tz').onchange=e=>{S.tz=e.target.value;syncTimezoneLabel();if(D&&!updateFaile
 let activeTyphoon=-1,typhoonQuery='';
 function setActiveTyphoon(i){activeTyphoon=i;const opts=[...$('#typOptions').querySelectorAll('[role="option"]')];opts.forEach(o=>o.setAttribute('aria-selected',+o.dataset.index===i));const active=$(`#ty-option-${i}`);if(active){$('#typSel').setAttribute('aria-activedescendant',active.id);active.scrollIntoView({block:'nearest'})}}
 function renderTyphoonOptions(query=''){
- if(!D?.typhoons)return;typhoonQuery=query;const q=query.trim().toLocaleLowerCase(),items=D.typhoons.map((t,i)=>({t,i})).filter(({t})=>!q||`${t.name} ${t.id}`.toLocaleLowerCase().includes(q)),menu=$('#typOptions');menu.innerHTML='';
+ if(!D?.typhoons)return;typhoonQuery=query;const q=query.trim().toLocaleLowerCase(),items=D.typhoons.map((t,i)=>({t,i})).filter(({t})=>!q||`${t.name} ${t.id} ${t.active?'活動':'歷史'}`.toLocaleLowerCase().includes(q)),menu=$('#typOptions');menu.innerHTML='';
  if(!items.length){const empty=document.createElement('div');empty.className='picker-empty';empty.textContent='找不到符合的颱風';menu.append(empty);activeTyphoon=-1;$('#typSel').removeAttribute('aria-activedescendant')}
- else{items.forEach(({t,i})=>{const b=document.createElement('button');b.type='button';b.className='picker-option';b.id=`ty-option-${i}`;b.setAttribute('role','option');b.dataset.index=i;b.dataset.storm=t.id;const name=document.createElement('span');name.textContent=t.name;const id=document.createElement('small');id.textContent=t.id;b.append(name,id);menu.append(b)});activeTyphoon=items.some(({i})=>i===S.ty)?S.ty:items[0].i;setActiveTyphoon(activeTyphoon)}
+ else{let previousGroup=null;items.forEach(({t,i})=>{const group=t.active?'活動颱風':'已儲存歷史';if(group!==previousGroup){const heading=document.createElement('div');heading.className='picker-group';heading.setAttribute('role','presentation');heading.textContent=group;menu.append(heading);previousGroup=group}const b=document.createElement('button');b.type='button';b.className='picker-option';b.id=`ty-option-${i}`;b.setAttribute('role','option');b.dataset.index=i;b.dataset.storm=t.id;b.title=t.id+'；最後分析 '+ft(t.history?.at(-1)?.time)+' '+TZ();const name=document.createElement('span');name.textContent=t.name;const id=document.createElement('small');id.className=t.active?'storm-active':'storm-historical';id.textContent=(t.active?'活動':'歷史')+' · '+t.id.slice(0,4);b.append(name,id);menu.append(b)});activeTyphoon=items.some(({i})=>i===S.ty)?S.ty:items[0].i;setActiveTyphoon(activeTyphoon)}
  menu.classList.remove('hide');$('#typSel').setAttribute('aria-expanded','true')
 }
 function closeTyphoonOptions(){const menu=$('#typOptions');menu.classList.add('hide');$('#typSel').setAttribute('aria-expanded','false');$('#typSel').removeAttribute('aria-activedescendant')}
-function chooseTyphoon(i){if(!D?.typhoons[i])return;initialStateRestored=true;stop();S.syncTime=null;S.ty=i;S.actual=latestPositionTime();S.hour=0;S.batch=0;$('#typSel').value=TY().name;S.sel=null;$('#det').classList.add('hide');closeTyphoonOptions();all()}
+function chooseTyphoon(i){if(!D?.typhoons[i])return;hideAccuracyTip();initialStateRestored=true;stop();S.syncTime=null;S.ty=i;S.actual=latestPositionTime();S.hour=0;S.batch=0;$('#typSel').value=TY().name;S.sel=null;$('#det').classList.add('hide');closeTyphoonOptions();all()}
 $('#typSel').addEventListener('focus',()=>renderTyphoonOptions(''));
 $('#typSel').addEventListener('input',e=>renderTyphoonOptions(e.target.value));
 $('#typSel').addEventListener('keydown',e=>{if(e.key==='Escape'){closeTyphoonOptions();return}if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();if($('#typOptions').classList.contains('hide'))renderTyphoonOptions(e.target.value);const opts=[...$('#typOptions').querySelectorAll('[role="option"]')];if(!opts.length)return;const at=opts.findIndex(o=>+o.dataset.index===activeTyphoon),step=e.key==='ArrowDown'?1:-1,next=at<0?(step>0?0:opts.length-1):Math.max(0,Math.min(opts.length-1,at+step));setActiveTyphoon(+opts[next].dataset.index)}else if(e.key==='Enter'&&!$('#typOptions').classList.contains('hide')){e.preventDefault();if(activeTyphoon>=0)chooseTyphoon(activeTyphoon)}});
@@ -293,7 +300,7 @@ function restore(){
 }
 let mediaExportBusy=false,mediaExportLoading=false;
 let updateInFlight=false,updateFailed=false,initialStateRestored=false;
-function showSyncTime(){$('#sync').textContent=ft(D.synced)+' '+TZ()}
+function showSyncTime(){const historical=TY()?.active===false;$('#mapUpdated').firstChild.textContent=historical?'歷史資料 ':'更新 ';$('#sync').textContent=ft(historical?latestPositionTime():D.synced)+' '+TZ()}
 async function refresh({visit=false,silent=false}={}){
  if(updateInFlight||mediaExportBusy)return false;
  updateInFlight=true;
@@ -321,7 +328,7 @@ async function refresh({visit=false,silent=false}={}){
   $('#empty').classList.toggle('hide',!none);$('#dock').classList.toggle('hide',none);
   $('#typSel').disabled=none;$('#typSel').value=TY()?.name||'';
   const ok=Object.values(D.sources).some(s=>['ok','none'].includes(s.status));
-  $('#empty h2').textContent=ok?'目前沒有活動中的熱帶氣旋':'暫時無法取得官方資料';
+  $('#empty h2').textContent=ok?'目前沒有可顯示的颱風資料':'暫時無法取得官方資料';
   $('#empty p').textContent='各來源狀態可在左側查看，請稍後重新整理。';
   $('#mock').innerHTML='<span id="mockT"></span>';
   if(none){
@@ -341,7 +348,7 @@ async function refresh({visit=false,silent=false}={}){
    if(batch?.issued===detail.issued&&batch.points.some(p=>p.time===detail.time))S.sel={a:detail.agency.k,b,h:(detail.time-referenceTime())/36e5};
    else clearSourceDetail();
   }
-  $('#mockT').textContent=TY()?'官方資料｜分析來源：'+analysisAgency():'官方資料';
+  $('#mockT').textContent=TY()?(TY()?.active===false?'已儲存歷史｜分析來源：':'官方資料｜分析來源：')+analysisAgency():'官方資料';
   showSyncTime();all();
   if(view)mapView.restoreView(view);
   if(pickerOpen&&!none){$('#typSel').value=inputValue;renderTyphoonOptions(query)}
@@ -408,3 +415,32 @@ async function openMapExport(event){
  }finally{mediaExportLoading=false;for(const button of document.querySelectorAll('[data-media-export]'))button.disabled=!TY()}
 }
 for(const button of document.querySelectorAll('[data-media-export]')){button.onclick=openMapExport;button.disabled=!TY()}
+
+/* One shared tooltip: hover/focus on desktop, tap to pin on touch screens. */
+const accuracyTip=document.createElement('div');accuracyTip.id='accuracyTooltip';accuracyTip.className='accuracy-tooltip hide';accuracyTip.setAttribute('role','tooltip');document.body.append(accuracyTip);
+let accuracyAnchor=null,accuracyPinned=false,accuracyHideTimer;
+function hideAccuracyTip(){clearTimeout(accuracyHideTimer);accuracyAnchor?.removeAttribute('aria-describedby');accuracyAnchor=null;accuracyPinned=false;accuracyTip.classList.add('hide')}
+function showAccuracyTip(button,pinned=false){
+ clearTimeout(accuracyHideTimer);accuracyAnchor?.removeAttribute('aria-describedby');accuracyAnchor=button;accuracyPinned=pinned;button.setAttribute('aria-describedby',accuracyTip.id);
+ const agency=button.dataset.accuracy,scope=button.dataset.scope,score=accuracyData(agency,scope),history=scope==='history',n=score?.sampleCount||0;
+ const reasons={no_finalized_history:'尚無已結束且具 JMA 定稿軌跡的合格歷史預報。',no_reference:'尚無同一颱風的 JMA 分析位置可供驗證。',waiting:'預報有效時間尚未到達，或仍待參考位置發布。',no_matching_reference:'已有到期預報，但缺少同時刻或可安全插值的參考位置。',no_forecasts:'尚無符合共同時次與 24h 時效的已儲存預報。'};
+ const rate=Number.isFinite(score?.rate)?score.rate.toFixed(1)+'%':'尚無可驗證樣本';
+ const fields=n?[['命中比例',`${score.hits} / ${n} 筆（${rate}）`],['平均／中位誤差',`${score.meanKm} / ${score.medianKm} km`],['涵蓋颱風',`${score.stormCount} 個`],['資料截止',ft(D.synced)+' '+TZ()],['樣本有效時間',`${ft(score.firstValid)} ～ ${ft(score.lastValid)} ${TZ()}`],['參考資料',`${score.reference} · ${score.provisional?'暫估':'定稿'}`],['比較口徑',score.comparable?'各參與來源的共同案例':'本來源可驗證案例，非公平排名'],['插值樣本',`${score.interpolated} 筆（官方分析間隔不超過 6h）`],['待驗證／缺參考',`${score.waitingCount} / ${score.unmatchedCount} 筆`]]:[];
+ accuracyTip.innerHTML=`<b>${escapeHtml(FN[agency])} · ${history?'歷史':'本颱風'}命中率</b><p class="accuracy-definition">24 小時預報位置誤差 ≤100 km 的比例。${history?'最近 365 天已收集的定稿歷史，排除本颱風。':'本颱風截至目前已能驗證的預報，不隨播放游標改變。'}</p>${n?'<dl>'+fields.map(([k,v])=>`<dt>${escapeHtml(k)}</dt><dd>${escapeHtml(v)}</dd>`).join('')+'</dl>':`<p>${escapeHtml(reasons[score?.reason]||'資料累積中，尚未產生評分。')}</p>`}${n&&score.sampleCount<10?'<p class="accuracy-caution">樣本少於 10 筆，僅供初步參考；此門檻為顯示提醒，不代表統計可靠程度。</p>':''}${score?.provisional&&n?'<p class="accuracy-caution">* 暫估：事後最佳路徑可能修訂結果。</p>':''}<p class="accuracy-footnote">同一起算與有效時間僅計一次，採最早已儲存的合格版本。百分比描述過往表現，不是下次預報成功的機率。</p>`;
+ accuracyTip.classList.remove('hide');
+ const rect=button.getBoundingClientRect(),box=accuracyTip.getBoundingClientRect();
+ const left=rect.right+10+box.width<=innerWidth-8?rect.right+10:Math.max(8,Math.min(rect.left,innerWidth-box.width-8));
+ const top=rect.bottom+box.height+8<=innerHeight-8?rect.bottom+8:Math.max(8,rect.top-box.height-8);
+ accuracyTip.style.left=left+'px';accuracyTip.style.top=top+'px';
+}
+sourceList.addEventListener('pointerover',e=>{const button=e.target.closest('[data-accuracy]');if(button&&e.pointerType==='mouse'&&!accuracyPinned)showAccuracyTip(button)});
+sourceList.addEventListener('pointerout',e=>{if(e.target.closest('[data-accuracy]')&&!accuracyPinned&&!accuracyTip.contains(e.relatedTarget))accuracyHideTimer=setTimeout(hideAccuracyTip,180)});
+sourceList.addEventListener('focusin',e=>{const button=e.target.closest('[data-accuracy]');if(button&&button.matches(':focus-visible'))showAccuracyTip(button)});
+sourceList.addEventListener('focusout',e=>{if(e.target.closest('[data-accuracy]')&&!accuracyPinned)hideAccuracyTip()});
+sourceList.addEventListener('click',e=>{const button=e.target.closest('[data-accuracy]');if(!button)return;if(accuracyPinned&&accuracyAnchor===button)hideAccuracyTip();else showAccuracyTip(button,true)});
+accuracyTip.onpointerenter=()=>clearTimeout(accuracyHideTimer);
+accuracyTip.onpointerleave=()=>{if(!accuracyPinned)hideAccuracyTip()};
+document.addEventListener('pointerdown',e=>{if(!e.target.closest('[data-accuracy]')&&!accuracyTip.contains(e.target))hideAccuracyTip()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!accuracyTip.classList.contains('hide')){e.preventDefault();e.stopImmediatePropagation();hideAccuracyTip()}},true);
+document.addEventListener('scroll',e=>{if(!accuracyTip.contains(e.target))hideAccuracyTip()},true);
+addEventListener('resize',hideAccuracyTip);
